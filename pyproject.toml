@@ -1,0 +1,57 @@
+[build-system]
+requires = ["hatchling==1.32.4"]
+build-backend = "hatchling.build"
+
+[project]
+name = "agent-observability"
+version = "0.1.0"
+description = "Agent observability 101: a pizza-ordering agent instrumented one chapter at a time"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+authors = [{ name = "Aditya Kunar", email = "aditya.kunar@gmail.com" }]
+dependencies = [
+    "fastmcp[apps]==4.0.3",
+    "prefab-ui==0.20.2",
+    "openai==3.8.0",
+    "httpx2==2.12.0",
+    "pydantic==2.13.5",
+    "pydantic-settings==2.15.0",
+    # Retain the reviewed security versions when installing without uv.lock, too.
+    "pyjwt[crypto]==2.15.0",
+    "pyyaml==6.0.3",
+    "urllib3==2.8.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/agent_observability"]
+
+[tool.pytest.ini_options]
+addopts = "-q --tb=short"
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "SIM", "B"]
+# SIM102/SIM117: the prefab UI DSL nests `with` blocks on purpose.
+# E501: MCP tool docstrings are one-line, LLM-facing descriptions; wrapping would change them.
+ignore = ["E501", "SIM102", "SIM117"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["agent_observability"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+
+[dependency-groups]
+dev = [
+    "mypy==2.3.1",
+    "pytest==9.1.1",
+    "pytest-asyncio==1.4.0",
+    "ruff==0.16.6",
+]

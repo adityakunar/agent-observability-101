@@ -1,0 +1,195 @@
+{
+  "menu": [
+    {
+      "id": "margherita",
+      "name": "Margherita",
+      "category": "pizza",
+      "description": "Classic tomato sauce, mozzarella, fresh basil.",
+      "prices": {
+        "personal": 7.99,
+        "medium": 10.99,
+        "large": 13.99
+      },
+      "price": null,
+      "available": true,
+      "allergens": [
+        "gluten",
+        "milk"
+      ]
+    },
+    {
+      "id": "pepperoni",
+      "name": "Pepperoni",
+      "category": "pizza",
+      "description": "Tomato sauce, mozzarella, classic pepperoni.",
+      "prices": {
+        "personal": 8.99,
+        "medium": 11.99,
+        "large": 14.99
+      },
+      "price": null,
+      "available": true,
+      "allergens": [
+        "gluten",
+        "milk"
+      ]
+    },
+    {
+      "id": "bbq_chicken",
+      "name": "BBQ Chicken",
+      "category": "pizza",
+      "description": "BBQ sauce, grilled chicken, red onion, mozzarella.",
+      "prices": {
+        "personal": 9.99,
+        "medium": 12.99,
+        "large": 15.99
+      },
+      "price": null,
+      "available": true,
+      "allergens": [
+        "gluten",
+        "milk"
+      ]
+    },
+    {
+      "id": "veggie_supreme",
+      "name": "Veggie Supreme",
+      "category": "pizza",
+      "description": "Tomato sauce, mixed peppers, mushrooms, sweetcorn, mozzarella.",
+      "prices": {
+        "personal": 8.49,
+        "medium": 11.49,
+        "large": 14.49
+      },
+      "price": null,
+      "available": true,
+      "allergens": [
+        "gluten",
+        "milk"
+      ]
+    },
+    {
+      "id": "meat_lovers",
+      "name": "Meat Lovers",
+      "category": "pizza",
+      "description": "Tomato sauce, pepperoni, ham, bacon, sausage, mozzarella.",
+      "prices": {
+        "personal": 9.99,
+        "medium": 13.49,
+        "large": 16.49
+      },
+      "price": null,
+      "available": true,
+      "allergens": [
+        "gluten",
+        "milk"
+      ]
+    },
+    {
+      "id": "garlic_bread",
+      "name": "Garlic Bread",
+      "category": "side",
+      "description": "Toasted baguette with garlic butter.",
+      "prices": null,
+      "price": 3.99,
+      "available": true,
+      "allergens": [
+        "gluten",
+        "milk"
+      ]
+    },
+    {
+      "id": "coleslaw",
+      "name": "Coleslaw",
+      "category": "side",
+      "description": "Creamy homemade coleslaw.",
+      "prices": null,
+      "price": 2.49,
+      "available": true,
+      "allergens": [
+        "egg",
+        "milk"
+      ]
+    },
+    {
+      "id": "chicken_wings",
+      "name": "Chicken Wings",
+      "category": "extra",
+      "description": "6 crispy chicken wings with BBQ dipping sauce.",
+      "prices": null,
+      "price": 5.99,
+      "available": true,
+      "allergens": [
+        "gluten"
+      ]
+    },
+    {
+      "id": "coke",
+      "name": "Coke",
+      "category": "drink",
+      "description": "330ml can.",
+      "prices": null,
+      "price": 1.99,
+      "available": true,
+      "allergens": []
+    },
+    {
+      "id": "diet_coke",
+      "name": "Diet Coke",
+      "category": "drink",
+      "description": "330ml can.",
+      "prices": null,
+      "price": 1.99,
+      "available": true,
+      "allergens": []
+    },
+    {
+      "id": "sprite",
+      "name": "Sprite",
+      "category": "drink",
+      "description": "330ml can.",
+      "prices": null,
+      "price": 1.99,
+      "available": true,
+      "allergens": []
+    },
+    {
+      "id": "water",
+      "name": "Still Water",
+      "category": "drink",
+      "description": "500ml bottle.",
+      "prices": null,
+      "price": 0.99,
+      "available": true,
+      "allergens": []
+    },
+    {
+      "id": "cookie_dough",
+      "name": "Cookie Dough",
+      "category": "dessert",
+      "description": "Warm chocolate chip cookie dough with vanilla ice cream.",
+      "prices": null,
+      "price": 3.49,
+      "available": true,
+      "allergens": [
+        "gluten",
+        "milk",
+        "egg"
+      ]
+    }
+  ],
+  "deals": [
+    {
+      "id": "meal_deal_standard",
+      "name": "Standard Meal Deal",
+      "description": "Any pizza + any side + any drink. Save \u20ac2.00.",
+      "required_categories": {
+        "pizza": 1,
+        "side": 1,
+        "drink": 1
+      },
+      "discount_amount": 2.0,
+      "discount_percent": null
+    }
+  ]
+}
