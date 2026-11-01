@@ -74,7 +74,43 @@ When that variable has a value, the app uses it. When it is empty, the app reads
 The app calls `/usr/bin/security` with its full path. A program with the same name in
 your `PATH` cannot take its place.
 
-### 2.3 Store a key (Linux or Windows)
+### 2.3 Switch between models (profiles)
+
+`models.toml` has named profiles. Each profile sets the URL, the model, the Keychain
+service and the allowed host. The file has no keys. The default profiles are:
+
+| Profile | Model | Key |
+| --- | --- | --- |
+| `local` | Gemma on your Mac (`make model`) | None |
+| `haiku` | `claude-haiku-5-5` on Anthropic | Keychain service `anthropic` |
+| `muse` | `meta/muse-glimmer-30b` on NVIDIA NIM | Keychain service `nvidia` |
+| `nemotron` | `nvidia/nemotron-3.5-lightning-30b-a3b` on NVIDIA NIM | Keychain service `nvidia` |
+
+To use a profile:
+
+1. Make sure that the key is in the Keychain (section 2.2, step 1).
+2. Type `make up PROFILE=haiku`.
+3. Type `make chat PROFILE=haiku`.
+4. To use the container, type `make agent-container PROFILE=haiku`.
+
+The profile adds its own host to the allowlist for that run only. Other hosts stay blocked.
+If you do not set `PROFILE`, the settings in `.env.local` apply.
+
+To add an expiry date or a personal profile, make the file `models.local.toml`. Git ignores it.
+Example:
+
+```toml
+[haiku]
+key_expires = 2027-01-31
+
+[muse]
+model = "<model id from build.nvidia.com>"
+key_expires = 2027-01-31
+```
+
+The app stops with a clear message if the profile name is wrong or the model id is missing.
+
+### 2.4 Store a key (Linux or Windows)
 
 1. Open `.env.local`. Do not commit this file. Git ignores it.
 2. Add `AGENT_OBSERVABILITY_LLM_API_KEY=<key>`.
@@ -82,7 +118,7 @@ your `PATH` cannot take its place.
 
 The app does the same expiry checks on this key.
 
-### 2.4 Rotate a key
+### 2.5 Rotate a key
 
 Do this procedure before the warning starts. Put a reminder in your calendar.
 
@@ -100,7 +136,7 @@ CAUTION: Do step 6 last. If you revoke the old key before the new key works, the
 Each key change adds one line to `.run/key-audit.log`. The line has the date,
 the action and the fingerprint. It does not have the key.
 
-### 2.5 Make the rules strong
+### 2.6 Make the rules strong
 
 An expiry date helps only if a system enforces it. These controls are in order of strength:
 

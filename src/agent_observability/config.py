@@ -3,10 +3,10 @@
 from datetime import date
 from functools import cache
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import AliasChoices, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from agent_observability import keys, netpolicy
+from agent_observability import keys, netpolicy, profiles
 
 
 class Settings(BaseSettings):
@@ -33,6 +33,13 @@ class Settings(BaseSettings):
     max_tool_iterations: int = Field(default=12, ge=1)
     max_tool_calls: int = Field(default=16, ge=1)
     streaming: bool = True
+    # A name from models.toml: make up PROFILE=haiku. Empty means use the fields above.
+    model_profile: str = Field(
+        default="", validation_alias=AliasChoices("AGENT_OBSERVABILITY_MODEL_PROFILE", "PROFILE")
+    )
+    # Set inside the agent container: model requests go to the egress proxy, whatever
+    # the profile says. The proxy adds the key, so the container has none.
+    via_proxy: str | None = None
 
     @field_validator("llm_temperature", mode="before")
     @classmethod
@@ -43,7 +50,16 @@ class Settings(BaseSettings):
         return value
 
 
-settings = Settings()
+def _with_profile(base: Settings) -> Settings:
+    if not base.model_profile:
+        return base
+    update = profiles.updates(base.model_profile, base.allowed_hosts, profiles.load())
+    if base.via_proxy:
+        update["llm_base_url"] = base.via_proxy
+    return base.model_copy(update=update)
+
+
+settings = _with_profile(Settings())
 
 
 def key_source() -> keys.KeySource:

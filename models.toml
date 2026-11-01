@@ -1,0 +1,30 @@
+# Model profiles. Pick one at run time: make up PROFILE=haiku, make chat PROFILE=muse.
+# No profile means the AGENT_OBSERVABILITY_LLM_* settings in .env.local apply as before.
+# Keys are not in this file. Each profile names a Keychain service (as in Lantern); the
+# key is the item with that service and your macOS user as the account:
+#   security add-generic-password -s anthropic -a "$USER" -w
+# A hosted profile's host is added to the egress allowlist for that run only.
+# Personal additions (expiry dates, extra profiles) go in models.local.toml (not committed).
+
+[local]
+base_url = "http://localhost:9000/v1"
+model = "gemma-4-e4b-4bit"
+
+[haiku]
+base_url = "https://api.anthropic.com/v1"
+model = "claude-haiku-5-5"
+keychain_service = "anthropic"
+api_key_env = "ANTHROPIC_API_KEY"   # wins when set, for one-off tests
+temperature = "omit"                # newer Claude models reject low temperatures
+
+[muse]
+base_url = "https://integrate.api.nvidia.com/v1"
+model = "meta/muse-glimmer-30b"
+keychain_service = "nvidia"
+api_key_env = "NVIDIA_API_KEY"
+
+[nemotron]
+base_url = "https://integrate.api.nvidia.com/v1"
+model = "nvidia/nemotron-3.5-lightning-30b-a3b"
+keychain_service = "nvidia"
+api_key_env = "NVIDIA_API_KEY"

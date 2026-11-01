@@ -48,6 +48,8 @@ services:
     networks: [sandbox] # internal only: no direct internet, no host access
     environment:
       AGENT_OBSERVABILITY_LLM_BASE_URL: http://proxy:8899/v1
+      AGENT_OBSERVABILITY_VIA_PROXY: http://proxy:8899/v1 # wins over a profile's URL
+      AGENT_OBSERVABILITY_MODEL_PROFILE: ${PROFILE:-${AGENT_OBSERVABILITY_MODEL_PROFILE:-}}
       HTTPS_PROXY: http://proxy:8899
       HTTP_PROXY: http://proxy:8899
       NO_PROXY: localhost,127.0.0.1,proxy
