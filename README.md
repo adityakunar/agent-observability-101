@@ -123,7 +123,20 @@ provider's server. Set the endpoint, model name and, when needed, API key in
 AGENT_OBSERVABILITY_LLM_BASE_URL=https://your-provider.example/v1
 AGENT_OBSERVABILITY_LLM_MODEL=your-tool-calling-model
 AGENT_OBSERVABILITY_LLM_API_KEY=your-provider-key
+AGENT_OBSERVABILITY_LLM_API_KEY_EXPIRES=2027-01-31
+AGENT_OBSERVABILITY_ALLOWED_HOSTS=your-provider.example
 ```
+
+The app only sends the key to a loopback model or to an HTTPS host listed in
+`AGENT_OBSERVABILITY_ALLOWED_HOSTS`.
+
+On macOS, keep the key out of files entirely: `make key-set EXPIRES=2027-01-31`
+stores it in the Keychain, and the app reads it from there when it starts. Every key
+needs an expiry date. The app refuses to start once it has passed, and
+`make rotate-key` replaces the key without downtime. [SECURITY.md](SECURITY.md)
+explains why, and what to lock down before you give an agent a shell.
+`make agent-container` runs the agent in a container whose only network exit is an
+allowlisting proxy that adds the key, so the agent never sees it.
 
 Then use `make up LLM=external` and `make chat`. Use your provider's actual
 endpoint and model identifier; this block is a configuration shape. A hosted

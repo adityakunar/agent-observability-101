@@ -1,0 +1,70 @@
+# Sandboxed agent: started by `make agent-container`. See SECURITY.md.
+# The agent sits on an internal network. Its only exit is the egress proxy.
+name: agent-sandbox
+
+networks:
+  sandbox:
+    internal: true # no route to the internet or to the host
+  egress: {}
+
+secrets:
+  llm_api_key:
+    environment: LLM_API_KEY # read from the Keychain by make; given to the proxy only
+
+services:
+  proxy:
+    image: python:3.14.4-slim
+    command:
+      - python
+      - -m
+      - agent_observability.egress
+      - --allowlist=/etc/egress-allowlist.txt
+      - --upstream=${LLM_UPSTREAM:-http://host.docker.internal:9000/v1}
+      - --key-file=/run/secrets/llm_api_key
+      - --log=/log/egress.log
+    environment:
+      PYTHONPATH: /src
+      PYTHONDONTWRITEBYTECODE: "1"
+    volumes:
+      - ${PROJECT:?}/src:/src:ro
+      - ./egress-allowlist.txt:/etc/egress-allowlist.txt:ro
+      - ${PROJECT:?}/.run:/log # audit log: .run/egress.log
+    secrets: [llm_api_key]
+    networks: [sandbox, egress]
+    extra_hosts: ["host.docker.internal:host-gateway"] # reach a local model on Linux
+    read_only: true
+    user: "1000"
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    cpus: 0.5
+    mem_limit: 256m
+    pids_limit: 64
+
+  agent:
+    build:
+      context: ..
+      dockerfile: security/agent.Dockerfile
+    depends_on: [proxy]
+    networks: [sandbox] # internal only: no direct internet, no host access
+    environment:
+      AGENT_OBSERVABILITY_LLM_BASE_URL: http://proxy:8899/v1
+      HTTPS_PROXY: http://proxy:8899
+      HTTP_PROXY: http://proxy:8899
+      NO_PROXY: localhost,127.0.0.1,proxy
+      # /tmp is noexec, so a dropped binary cannot run there. Tests that need
+      # executable temp files use .run/pytest inside the workspace instead.
+      PYTEST_ADDOPTS: --basetemp=/work/.run/pytest
+    volumes:
+      - ${PROJECT:?}:/work # workspace: read-write
+      - ${DATA:-${PROJECT:?}/resources}:/data:ro # inputs: read-only
+    tmpfs:
+      - /tmp:size=${TMPFS_SIZE:-1g},mode=1777,noexec # scratch: capped, no programs, wiped at exit
+    read_only: true # root filesystem: read-only
+    user: "1000"
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    cpus: ${AGENT_CPUS:-2}
+    mem_limit: ${AGENT_MEMORY:-6g}
+    pids_limit: 256
+    stdin_open: true
+    tty: true

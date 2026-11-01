@@ -19,9 +19,16 @@ __all__ = ["APIModel", "Model", "ModelError", "Reply", "TextCallback", "ToolCall
 
 class APIModel:
     def __init__(
-        self, base_url: str, model: str, *, api_key: str = "not-needed", streaming: bool = True
+        self,
+        base_url: str,
+        model: str,
+        *,
+        api_key: str = "not-needed",
+        streaming: bool = True,
+        temperature: float | None = 0.2,
     ) -> None:
         self.base_url = base_url
+        self.temperature = temperature
         self.model = model
         self.streaming = streaming
         self.on_metrics: Callable[[Measurements], None] | None = None
@@ -36,10 +43,11 @@ class APIModel:
     ) -> Reply:
         request: dict[str, Any] = {
             "model": self.model,
-            "temperature": 0.2,
             "messages": cast(list[ChatCompletionMessageParam], messages),
             "max_tokens": 1024,
         }
+        if self.temperature is not None:
+            request["temperature"] = self.temperature
         if tools:
             request.update(tools=tools, tool_choice="auto")
         timer = RequestTimer()

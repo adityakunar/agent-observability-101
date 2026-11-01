@@ -2,8 +2,10 @@
 
 from typing import Any
 
-from agent_observability.config import settings
+from agent_observability.config import llm_api_key, settings
+from agent_observability.keys import KeyExpiredError, KeyMissingError
 from agent_observability.llm.memory import number, read_status
+from agent_observability.netpolicy import EgressDeniedError
 
 UNAVAILABLE = {
     "available": False,
@@ -22,7 +24,15 @@ def _rate(value: Any) -> str:
 
 async def model_server_summary() -> dict[str, Any]:
     """Server-wide figures from rapid-mlx; they cover every request, not one conversation."""
-    body = await read_status(settings.llm_base_url, settings.llm_api_key.get_secret_value())
+    try:
+        api_key = llm_api_key()
+    except KeyExpiredError:
+        return {**UNAVAILABLE, "status": "API key expired; run make rotate-key"}
+    except KeyMissingError:
+        return {**UNAVAILABLE, "status": "No key in the configured Keychain service"}
+    except EgressDeniedError:
+        return {**UNAVAILABLE, "status": "Model host not on the allowlist"}
+    body = await read_status(settings.llm_base_url, api_key)
     if body is None:
         return UNAVAILABLE
     metal = body.get("metal")

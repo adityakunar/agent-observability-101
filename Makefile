@@ -11,7 +11,7 @@ RUN_DIR     := .run
 STARTUP_TIMEOUT ?= 60
 
 .DEFAULT_GOAL := help
-.PHONY: help setup check-model model server chat verify fmt up down status logs
+.PHONY: help setup check-model model server chat verify fmt up down status logs key-status key-set rotate-key scan-secrets chat-offline server-offline agent-container
 
 help:
 	@echo "  make up        start local model + pizza MCP server and delivery desk (background)"
@@ -23,6 +23,12 @@ help:
 	@echo "  make verify    formatting, lint, types and offline tests"
 	@echo "  make fmt       format code and fix lint"
 	@echo "  make up LLM=external   use a model endpoint you manage yourself"
+	@echo "  make key-status        where the API key comes from and when it expires"
+	@echo "  make key-set EXPIRES=YYYY-MM-DD     store a key in the macOS Keychain"
+	@echo "  make rotate-key EXPIRES=YYYY-MM-DD  replace, verify, then revoke the old key"
+	@echo "  make scan-secrets      scan the repo and its history for leaked keys (gitleaks)"
+	@echo "  make server-offline | make chat-offline   macOS sandbox: loopback network only"
+	@echo "  make agent-container [CMD=...]  run a command in the sandboxed agent container"
 
 setup:
 	$(UV) sync --locked
@@ -98,7 +104,55 @@ down:
 status:
 	@for p in $(LLM_PORT) $(MCP_PORT); do \
 		if lsof -ti TCP:$$p -sTCP:LISTEN >/dev/null 2>&1; then echo "  :$$p  UP"; else echo "  :$$p  down"; fi; \
+		if lsof -nP -iTCP:$$p -sTCP:LISTEN 2>/dev/null | grep -Eq '(\*|0\.0\.0\.0|\[::\]):'"$$p"; then \
+			echo "  :$$p  WARNING listening on all interfaces; bind it to 127.0.0.1"; fi; \
 	done
 
 logs:
 	@tail -n +1 -f $(RUN_DIR)/*.log
+
+# Keys: macOS Keychain with an expiry date; see SECURITY.md.
+key-status:
+	@$(UV) run --locked python -m agent_observability.keys status
+
+key-set:
+	@[ -n "$(EXPIRES)" ] || { echo "usage: make key-set EXPIRES=YYYY-MM-DD" >&2; exit 2; }
+	@$(UV) run --locked python -m agent_observability.keys set --expires $(EXPIRES)
+
+rotate-key:
+	@[ -n "$(EXPIRES)" ] || { echo "usage: make rotate-key EXPIRES=YYYY-MM-DD" >&2; exit 2; }
+	@$(UV) run --locked python -m agent_observability.keys rotate --expires $(EXPIRES)
+
+scan-secrets:
+	@command -v gitleaks >/dev/null || { echo "install gitleaks first: brew install gitleaks" >&2; exit 1; }
+	gitleaks git --redact --no-banner .
+
+# Default-deny egress on macOS: run against a local model with no route off the machine.
+SANDBOX = sandbox-exec -f security/loopback-only.sb -D HOME="$$HOME" -D PROJECT="$(CURDIR)" \
+	-D UV_CACHE="$$($(UV) cache dir)"
+
+server-offline:
+	@[ "$$(uname -s)" = Darwin ] || { echo "sandbox-exec is macOS only; use a container elsewhere." >&2; exit 1; }
+	$(SANDBOX) $(UV) run --locked --offline python -m agent_observability.pizza.server
+
+chat-offline:
+	@[ "$$(uname -s)" = Darwin ] || { echo "sandbox-exec is macOS only; use a container elsewhere." >&2; exit 1; }
+	$(SANDBOX) $(UV) run --locked --offline python -m agent_observability.chat
+
+# Sandboxed agent container: project rw, data ro, capped /tmp, CPU/memory/process caps,
+# a wall-clock timeout, no root, read-only root filesystem, and one exit: the egress proxy.
+CMD           ?= bash
+AGENT_TIMEOUT ?= 30m
+COMPOSE       := docker compose -f security/agent-compose.yml
+
+agent-container:
+	@command -v docker >/dev/null || { echo "install Docker Desktop, OrbStack or Colima first" >&2; exit 1; }
+	@mkdir -p $(RUN_DIR)
+	@upstream="$$($(UV) run --locked python -c 'from agent_observability.config import settings; print(settings.llm_base_url)' \
+		| sed -E 's#//(localhost|127\.0\.0\.1)([:/])#//host.docker.internal\2#')" || exit 1; \
+	key="$$($(UV) run --locked python -c 'from agent_observability.config import llm_api_key; k = llm_api_key(); print("" if k == "not-needed" else k)')" \
+		|| { echo "key check failed: see the error above, or run make rotate-key" >&2; exit 1; }; \
+	export PROJECT="$(CURDIR)" LLM_UPSTREAM="$$upstream" LLM_API_KEY="$$key"; \
+	$(COMPOSE) run --rm --build agent timeout $(AGENT_TIMEOUT) $(CMD); status=$$?; \
+	$(COMPOSE) down --remove-orphans >/dev/null 2>&1; \
+	echo "egress log: $(RUN_DIR)/egress.log"; exit $$status

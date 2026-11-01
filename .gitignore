@@ -6,6 +6,10 @@ __pycache__/
 .ruff_cache/
 .env
 .env.local
+.env.*
+!.env.example
+*.pem
+*.key
 .DS_Store
 dist/
 *.egg-info/

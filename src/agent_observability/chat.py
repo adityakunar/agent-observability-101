@@ -5,8 +5,10 @@ import asyncio
 from fastmcp import Client
 
 from agent_observability.client import Agent
-from agent_observability.config import settings
+from agent_observability.config import llm_api_key, settings
+from agent_observability.keys import KeyExpiredError, KeyMissingError
 from agent_observability.model import APIModel
+from agent_observability.netpolicy import EgressDeniedError
 from agent_observability.pizza.prompt import PROMPT
 from agent_observability.terminal import Console, choose_address
 
@@ -15,8 +17,9 @@ async def run() -> None:
     model = APIModel(
         settings.llm_base_url,
         settings.llm_model,
-        api_key=settings.llm_api_key.get_secret_value(),
+        api_key=llm_api_key(),
         streaming=settings.streaming,
+        temperature=settings.llm_temperature,
     )
     try:
         async with Client("http://localhost:8000/mcp") as client:
@@ -52,6 +55,9 @@ def main() -> None:
         asyncio.run(run())
     except KeyboardInterrupt:
         print("\nGoodbye.")
+    except (KeyExpiredError, KeyMissingError, EgressDeniedError) as exc:
+        print(f"Cannot start chat: {exc}")
+        raise SystemExit(1) from exc
     except (RuntimeError, ConnectionError, OSError) as exc:
         print(f"Cannot complete chat: {exc}\nCheck make server and your model endpoint.")
         raise SystemExit(1) from exc
