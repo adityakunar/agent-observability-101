@@ -55,7 +55,7 @@ make up
 make chat
 ```
 
-The library baseline is **Prefab (`prefab-ui`) 0.20.2**, **FastMCP 4.0.3** and
+The library baseline is **Prefab (`prefab-ui`) 0.20.2**, **FastMCP 4.1.2** and
 **rapid-mlx 0.16.8**. Application, development and build dependencies have exact
 versions in [pyproject.toml](pyproject.toml); [uv.lock](uv.lock) also fixes transitive
 application dependencies and their artifact hashes. Make commands use `--locked`

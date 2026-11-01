@@ -30,7 +30,7 @@ This walkthrough is for Python users who can follow functions, type hints and
 `async` calls. You do not need previous MCP, UI or agent-framework experience.
 The primary local-model recipe uses an Apple silicon Mac; Python 3.11+, Git,
 Make and uv are required for the application. The examples use **Prefab 0.20.2**,
-**FastMCP 4.0.3** and **rapid-mlx 0.16.8**; [uv.lock](uv.lock) records the
+**FastMCP 4.1.2** and **rapid-mlx 0.16.8**; [uv.lock](uv.lock) records the
 application environment. Follow the
 [README setup](README.md#start-the-assistant-and-delivery-desk) for the pinned
 versions, initial model download and memory requirements. The alternative

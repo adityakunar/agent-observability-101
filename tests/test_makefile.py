@@ -117,3 +117,32 @@ def test_down_stops_managed_process_and_keeps_logs_and_unmanaged_process(tmp_pat
             if process.poll() is None:
                 process.terminate()
             process.wait(timeout=5)
+
+
+def _audit(tmp_path: Path, uv_script: str) -> subprocess.CompletedProcess[str]:
+    (tmp_path / "Makefile").write_text(MAKEFILE.read_text())
+    uv = tmp_path / "uv"
+    uv.write_text(f'#!/bin/sh\necho "$*" >> calls.log\n{uv_script}\n')
+    uv.chmod(493)
+    return subprocess.run(
+        ["make", "audit", f"UV={uv}", "AUDIT_ARGS=--ignore-until-fixed GHSA-test"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+
+
+@pytest.mark.parametrize("vulnerable", [False, True])
+def test_audit_scans_the_lockfile_and_fails_on_findings(tmp_path: Path, vulnerable: bool) -> None:
+    result = _audit(tmp_path, f'case "$*" in *--help*) exit 0;; esac\nexit {int(vulnerable)}')
+    calls = (tmp_path / "calls.log").read_text()
+    assert "audit --locked --preview-features audit-command --ignore-until-fixed GHSA-test" in calls
+    assert (result.returncode != 0) == vulnerable
+
+
+def test_audit_explains_an_old_uv(tmp_path: Path) -> None:
+    result = _audit(tmp_path, "exit 2")
+    assert result.returncode != 0
+    assert "uv self update" in result.stderr
+    assert "--locked" not in (tmp_path / "calls.log").read_text()

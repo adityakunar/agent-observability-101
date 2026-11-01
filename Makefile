@@ -11,7 +11,7 @@ RUN_DIR     := .run
 STARTUP_TIMEOUT ?= 60
 
 .DEFAULT_GOAL := help
-.PHONY: help setup check-model model server chat verify fmt up down status logs key-status key-set rotate-key scan-secrets chat-offline server-offline agent-container
+.PHONY: help setup check-model model server chat verify check audit fmt up down status logs key-status key-set rotate-key scan-secrets chat-offline server-offline agent-container
 
 help:
 	@echo "  make up        start local model + pizza MCP server and delivery desk (background)"
@@ -20,7 +20,9 @@ help:
 	@echo "  make status    show listeners on :$(LLM_PORT) :$(MCP_PORT)"
 	@echo "  make logs      tail background logs"
 	@echo "  make model | make server   run one service in the foreground"
-	@echo "  make verify    formatting, lint, types and offline tests"
+	@echo "  make verify    make check, then make audit"
+	@echo "  make check     formatting, lint, types and offline tests (no network)"
+	@echo "  make audit     scan the locked dependencies for known vulnerabilities (OSV, needs network)"
 	@echo "  make fmt       format code and fix lint"
 	@echo "  make up LLM=external   use a model endpoint you manage yourself"
 	@echo "  make key-status        where the API key comes from and when it expires"
@@ -47,11 +49,22 @@ server:
 chat:
 	$(UV) run --locked python -m agent_observability.chat
 
-verify:
+verify: check audit
+
+check:
 	$(UV) run --locked ruff format --check src/ tests/
 	$(UV) run --locked ruff check src/ tests/
 	$(UV) run --locked mypy src/
 	$(UV) run --locked pytest
+
+# Known vulnerabilities in uv.lock (dev tools too), from the OSV database. Needs network,
+# so it is not part of check or the offline targets. Accept a finding only with a reason:
+# make audit AUDIT_ARGS="--ignore-until-fixed GHSA-xxxx-xxxx-xxxx"
+AUDIT_ARGS ?=
+
+audit:
+	@$(UV) audit --help >/dev/null 2>&1 || { echo "ERROR: this uv has no audit command. Run: uv self update" >&2; exit 1; }
+	$(UV) audit --locked --preview-features audit-command $(AUDIT_ARGS)
 
 fmt:
 	$(UV) run --locked ruff format src/ tests/

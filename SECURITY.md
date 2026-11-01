@@ -17,6 +17,7 @@ Each instruction has one action. Procedures use numbered steps.
 | macOS sandbox | `make server-offline` and `make chat-offline` block all traffic that leaves the computer. |
 | Agent container | `make agent-container` runs the agent with limits on files, CPU, memory, time and network. |
 | Leak scan | `make scan-secrets` scans the files and the git history with gitleaks. |
+| Dependency scan | `make audit` compares each locked package with known vulnerabilities. `make verify` runs it. |
 
 A local model does not need a key. If you use a local model, the app works with no key.
 
@@ -255,7 +256,7 @@ the packages or the network are not under your control.
 To run one command, use `CMD`. Examples:
 
 ```bash
-make agent-container CMD="make verify"
+make agent-container CMD="make check"
 make agent-container CMD="python -m agent_observability.pizza.server" AGENT_TIMEOUT=2h
 make agent-container DATA=$HOME/datasets/sales AGENT_MEMORY=8g
 ```
@@ -303,7 +304,99 @@ address, not on `127.0.0.1`. On macOS, Docker Desktop and OrbStack connect
 | 2. Allowlist | `make agent-container`. The usual level for an agent. |
 | 3. Open | Only for a temporary VM with no secrets in it. |
 
-## 5. Checklist: before you give an agent a shell
+## 5. Dependencies
+
+`uv.lock` pins each package to one version and one file hash. A pin stops
+unexpected changes. A pin does not stop a vulnerability that people find later
+in the pinned version.
+
+### 5.1 Scan the dependencies
+
+1. Type `make audit`.
+2. Read the result. `uv audit` sends the names and versions in `uv.lock` to the
+   OSV database (osv.dev). It does not send your code or your keys.
+3. If the scan finds a vulnerability, the command fails.
+
+`make verify` runs `make check` first and then `make audit`. `make check` does
+the formatting, lint, type and test steps. It does not use the network.
+
+NOTE: `make audit` needs network access to osv.dev. Do not run it in
+`make server-offline`, `make chat-offline` or `make agent-container`. In those
+places, use `make check`.
+
+NOTE: `uv audit` is a preview feature of uv. If your uv does not have it, type
+`uv self update`.
+
+### 5.2 Fix a vulnerability
+
+1. Find the first fixed version in the result.
+2. Update the package: `uv lock --upgrade-package <name>`.
+3. If the package is a direct dependency, also change its pin in `pyproject.toml`.
+4. Type `make verify`.
+5. Commit `uv.lock` and `pyproject.toml` together.
+
+If there is no fixed version, you can accept the risk for some time:
+
+```bash
+make audit AUDIT_ARGS="--ignore-until-fixed GHSA-xxxx-xxxx-xxxx"
+```
+
+Write the reason in the commit message. When a fix is available, the scan fails again.
+
+### 5.3 Automate the scan
+
+A scan that you must remember to run does not run often. Use automation for two
+different jobs: a guard and a helper.
+
+| Job | Tool | What it does | Cost and risk |
+| --- | --- | --- | --- |
+| Guard | GitHub Actions | `verify.yml` runs `make verify` (with the scan) on each push. `audit.yml` runs `make audit` each Monday. A vulnerability makes the build fail (red). | Free for public repos. It does not change the code. It sends only package names and versions to osv.dev. |
+| Guard | Dependabot alerts | GitHub reads `uv.lock` and sends an alert when a new advisory affects a pinned package. | No setup in the repo. Alerts only. |
+| Helper | Dependabot pull requests | Opens one pull request for each fix. CI runs the tests on it. | Many small pull requests. You must read each one. |
+| Helper | A weekly Claude routine | Upgrades the vulnerable packages, runs `make verify`, and opens one pull request with a short summary in plain words. | Uses model tokens. You must read the pull request before you merge it. |
+
+Use the guard on every repo. Add a helper if you do not want to do the upgrades yourself.
+
+This repo uses the two Actions and Dependabot (`.github/dependabot.yml`). Dependabot
+updates `pyproject.toml` and `uv.lock` together. It opens one grouped pull request
+each week. It also updates the commit SHAs of the Actions.
+
+Is Dependabot safe? It gets no secrets, it reads only public advisories, and it can
+only open pull requests. Two risks remain:
+
+- A bad release. An attacker can publish a poisoned new version, and Dependabot can
+  propose it. Two controls apply:
+  - A cooldown of 5 days. Dependabot waits 5 days before it proposes a new release.
+    Most poisoned versions are found and removed in that time. Security updates do
+    not wait.
+  - The guard. `verify.yml` runs the tests and the scan on each Dependabot pull
+    request. GitHub gives that run a read-only token and no secrets.
+- Auto-merge. Do not turn it on. A person reads the pull request and merges it.
+
+To get a pull request as soon as an advisory appears, do this one time:
+
+1. On GitHub, open Settings > Code security.
+2. Turn on Dependabot alerts.
+3. Turn on Dependabot security updates.
+
+Rules for the automation:
+
+1. Do not give the scan job a secret. It does not need one.
+2. Give the job read-only repo permission (`permissions: contents: read`).
+3. Pin each third-party Action to a full commit SHA, not to a tag. A tag can move.
+4. Do not let a helper merge its own pull request. A person merges.
+5. The weekly run is necessary. New advisories appear when the code does not change.
+
+NOTE: This repo works locally. A helper sends its fix as a pull request on GitHub.
+Pull that branch, type `make verify`, and merge it.
+
+### 5.4 Tidbit: a lockfile is a snapshot, not a guarantee
+
+A lockfile makes a build repeatable. It also keeps a vulnerable version in place
+for a long time. Nothing in the lockfile changes when a new CVE is published.
+Run the scan on a schedule, not only when you change the code.
+
+## 6. Checklist: before you give an agent a shell
 
 Start with strict rules. Then make them less strict, one rule at a time.
 
