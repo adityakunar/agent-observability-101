@@ -1,0 +1,58 @@
+.lantern {
+  --background: #fff7e4; --foreground: #20313c; --card: #fffdf4;
+  --card-foreground: #20313c; --muted-foreground: #50626d;
+  --primary: #d84b3b; --primary-foreground: #fffdf4;
+  --border: #20313c; --radius: .5rem;
+  background: #fff7e4; color: #20313c;
+  font-family: "Trebuchet MS", Arial, sans-serif;
+  min-height: 100vh;
+}
+.lantern .delivery-desk { max-width: 1120px; margin: auto; padding: 32px; }
+.lantern .comic-hero { align-items: center; padding-bottom: 8px; }
+.lantern .eyebrow { font-size: 11px; font-weight: 800; letter-spacing: .16em; }
+.lantern .hero-title { font-family: Georgia, serif; font-size: clamp(36px, 5vw, 60px); line-height: 1.03; letter-spacing: -.04em; max-width: 450px; }
+.lantern .hero-description { font-size: 17px; line-height: 1.6; max-width: 340px; }
+.lantern .speech-bubble { position: relative; width: fit-content; padding: 12px 18px; background: white; border: 2px solid #20313c; border-radius: 18px; font-weight: 700; transform: rotate(-2deg); box-shadow: 3px 3px 0 #20313c; }
+.lantern .comic-illustration { display: block; border: 2px solid #20313c; border-radius: 6px; box-shadow: 6px 6px 0 #20313c; }
+.lantern .comic-panel { border: 2px solid #20313c; box-shadow: 4px 4px 0 #20313c; border-radius: 6px; color: #20313c; background: #fffdf4; transition: transform .15s ease, box-shadow .15s ease; }
+.lantern .comic-panel:hover { transform: translate(-1px, -1px); box-shadow: 5px 5px 0 #20313c; }
+.lantern .metric-panel { padding: 20px 24px; }
+.lantern .butter { background: #ffe38b; }
+.lantern .tomato { background: #ffb1a0; }
+.lantern .sky { background: #bfe6ef; }
+.lantern .desk-toolbar { flex-wrap: wrap; margin-top: 4px; }
+.lantern .desk-toolbar button { margin-left: auto; border: 2px solid #20313c; background: #fffdf4; box-shadow: 2px 2px 0 #20313c; font-weight: 700; }
+.lantern .live-note { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #50626d; }
+.lantern .live-note::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #388763; animation: lantern-pulse 2s ease-in-out infinite; }
+.lantern [role="tablist"] { background: transparent; border-bottom: 2px solid #20313c; border-radius: 0; width: 100%; height: auto; justify-content: flex-start; flex-wrap: wrap; padding: 0 0 10px; gap: 8px; margin-bottom: 20px; }
+.lantern [role="tab"] { border: 2px solid transparent; padding: 9px 16px; font-weight: 700; color: #20313c; border-radius: 6px; }
+.lantern [role="tab"][aria-selected="true"] { background: #ffe38b; border-color: #20313c; box-shadow: 2px 2px 0 #20313c; }
+.lantern .ticket { margin-bottom: 18px; animation: lantern-arrive .25s ease-out both; }
+.lantern .ticket-heading { flex-wrap: wrap; }
+.lantern .ticket-heading h3 { margin-right: auto; font-family: Georgia, serif; font-size: 23px; }
+.lantern .order-items { font-size: 17px; font-weight: 700; }
+.lantern .address-line { padding: 12px 16px; border-left: 4px solid #d84b3b; background: #fff1d3; font-size: 15px; }
+.lantern .ticket-totals { flex-wrap: wrap; align-items: center; border-top: 1px dashed #829098; padding-top: 16px; }
+.lantern .price { font-family: Georgia, serif; font-size: 30px; font-weight: 700; white-space: nowrap; }
+.lantern .empty-panel { padding: 28px; border-style: dashed; box-shadow: none; }
+.lantern .empty-panel h3 { font-family: Georgia, serif; font-size: 25px; margin-bottom: 8px; }
+.lantern .section-caption { font-family: Georgia, serif; font-size: 24px; margin-bottom: 18px; }
+.lantern .source-ticket { margin-bottom: 12px; }
+.lantern .source-row { flex-wrap: wrap; }
+.lantern .source-arguments { overflow-wrap: anywhere; }
+.lantern .menu-price { font-weight: 700; color: #ac382e; }
+.lantern .desk-footer { text-align: center; color: #50626d; font-size: 12px; border-top: 1px solid #d9ceaf; padding-top: 20px; }
+@keyframes lantern-pulse { 50% { box-shadow: 0 0 0 5px #38876320; } }
+@keyframes lantern-arrive { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width: 600px) { .lantern .delivery-desk { padding: 20px 16px; } .lantern .desk-toolbar button { margin-left: 0; } .lantern [role="tab"] { padding: 8px 10px; } }
+@media (prefers-reduced-motion: reduce) { .lantern *, .lantern *::before { animation: none !important; transition: none !important; } }
+
+.lantern .cart-line { justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid #e4dcca; }
+.lantern .line-prices { margin-left: auto; text-align: right; white-space: nowrap; }
+.lantern .ticket-breakdown { flex-wrap: wrap; align-items: center; font-size: 14px; color: #50626d; }
+.lantern .quote-total { font-weight: 700; color: #20313c; }
+.lantern .source-passage { padding: 12px 16px; background: #fff1d3; border-left: 3px solid #388763; font-size: 14px; overflow-wrap: anywhere; }
+.lantern .address-line, .lantern .ticket small { overflow-wrap: anywhere; }
+/* Dialogs render outside the app root, so this reader cannot use the .lantern ancestor. */
+.source-document { max-height: 65vh; overflow: auto; overflow-wrap: anywhere; }
+.source-document table { font-size: 13px; }

@@ -1,0 +1,9 @@
+# Hosts the sandboxed agent may reach over HTTPS (CONNECT :443), one per line.
+# A leading dot allows subdomains: .example.com matches api.example.com.
+# The model API needs no line here: the proxy routes /v1 to it and adds the key.
+# Add a host only when a task needs it. Remove it when the task is done.
+pypi.org
+files.pythonhosted.org
+github.com
+codeload.github.com
+objects.githubusercontent.com

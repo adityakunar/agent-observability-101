@@ -1,0 +1,23 @@
+# Dependency updates. See SECURITY.md section 5.3.
+# Security updates: turn on "Dependabot security updates" in
+# Settings > Code security. They open a pull request when an advisory hits uv.lock.
+version: 2
+updates:
+  - package-ecosystem: "uv"          # updates pyproject.toml pins and uv.lock together
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      python:                       # one pull request per week, not one per package
+        patterns: ["*"]
+    open-pull-requests-limit: 5
+    cooldown:                       # wait before proposing a brand-new release; a poisoned
+      default-days: 5               # version is often found and yanked within days.
+                                    # Security updates are not delayed.
+
+  - package-ecosystem: "github-actions"   # keeps the pinned commit SHAs up to date
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 5

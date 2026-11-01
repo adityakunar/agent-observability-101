@@ -1,0 +1,13 @@
+;; macOS sandbox profile: default-deny outbound network, loopback allowed.
+;; Used by `make chat-offline` and `make server-offline` with a local model.
+;; Inbound connections to 127.0.0.1 still work; anything leaving the machine fails.
+(version 1)
+(allow default)
+(deny network-outbound)
+(allow network-outbound (remote ip "localhost:*"))
+;; Writes stay inside the checkout and temp dirs; secrets dirs are unreadable.
+(deny file-write* (subpath (param "HOME")))
+(allow file-write* (subpath (param "PROJECT")) (subpath (param "UV_CACHE")))
+(deny file-read* (subpath (string-append (param "HOME") "/.ssh"))
+                 (subpath (string-append (param "HOME") "/.aws"))
+                 (subpath (string-append (param "HOME") "/.config/gcloud")))
