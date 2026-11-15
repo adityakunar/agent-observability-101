@@ -7,7 +7,7 @@ import pytest
 
 from agent_observability import keys
 
-ATTRIBUTES = """keychain: "/Users/q/Library/Keychains/login.keychain-db"
+ATTRIBUTES = """keychain: "/Users/you/Library/Keychains/login.keychain-db"
 attributes:
     "acct"<blob>="llm-api-key"
     "icmt"<blob>="expires=2027-01-31"
