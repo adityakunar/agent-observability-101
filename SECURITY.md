@@ -47,22 +47,21 @@ read the same item. Then one key serves all your projects.
 
 1. If the key is not in the Keychain, type `security add-generic-password -s anthropic -a "$USER" -w`.
 2. Paste the key when the prompt shows.
-3. In `models.local.toml`, add a profile:
+3. The `haiku` profile in `models.toml` reads this item. In `models.local.toml`, add
+   only the expiry date of your key:
 
    ```toml
-   [sonnet]
-   base_url = "https://api.anthropic.com/v1"
-   model = "claude-sonnet-5-5"
-   keychain_service = "anthropic"
+   [haiku]
    key_expires = "YYYY-MM-DD"
-   temperature = "omit"
    ```
 
-4. Type `make key-status PROFILE=sonnet`. Make sure that the output shows `source=keychain:anthropic`.
+4. Type `make key-status PROFILE=haiku`. Make sure that the output shows `source=keychain:anthropic`.
 
-`temperature = "omit"` removes the temperature from each request. Newer Claude models
-refuse a low temperature. For NVIDIA, use `https://integrate.api.nvidia.com/v1` and the
-service `nvidia`. The profile allows its own host for that run.
+For a different provider, add a full profile to `models.local.toml` with the same
+fields as `haiku`. For NVIDIA, use `https://integrate.api.nvidia.com/v1` and the
+service `nvidia`. `temperature = "omit"` removes the temperature from each request,
+because newer Claude models refuse a low temperature. A profile allows its own host
+for that run.
 
 NOTE: A key that another tool stored has no expiry date in the Keychain. Put the date from the
 provider console in `key_expires`. Then the expiry checks work.
