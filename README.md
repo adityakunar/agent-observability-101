@@ -55,8 +55,17 @@ as a separate tool:
 uv tool install rapid-mlx==1.0.1
 ```
 
-Then start the three parts of the chapter. Open three terminals in the repository
-folder and type one command in each:
+Then start the chapter. `make up` starts the model and the server in the
+background and waits until both answer, so the chat cannot start too early:
+
+```bash
+make up        # start both and wait; the first start downloads the model
+make status    # the model that the chat will use, and what answers on each port
+make chat
+make down      # stop what make up started
+```
+
+To watch each part work, give each one a terminal instead:
 
 ```bash
 make model     # terminal 1: the local model, port 9000
@@ -64,10 +73,11 @@ make server    # terminal 2: the MCP tools and the delivery desk, port 8000
 make chat      # terminal 3: the chat
 ```
 
-Each part stays in its terminal and shows its own output. Wait until the model
-server in terminal 1 has started before you send the first chat message. If the
-chat reports that it cannot reach the model, wait and try again. Press Ctrl+C in a
-terminal to stop that part.
+Each part stays in its terminal and shows its own output. Here nothing waits for
+you: start `make chat` only when the model in terminal 1 and the server in
+terminal 2 have started. On the first run that takes a while, and a chat that
+starts too early reports that it cannot reach them. Press Ctrl+C in a terminal to
+stop that part.
 
 Versions are pinned: **Prefab (`prefab-ui`) 0.21.1**, **FastMCP 4.1.4**,
 **rapid-mlx 1.0.1**, **uv 0.13.6** and **Python 3.14.4** (selected by
@@ -124,18 +134,20 @@ with [Ollama](https://docs.ollama.com/api/openai-compatibility) installed and ru
 ollama pull qwen3:8b
 ```
 
-Put the endpoint and the model name in `.env.local`:
+Point the `local` profile at it. Create `models.local.toml` next to `models.toml`:
 
-```dotenv
-AGENT_OBSERVABILITY_LLM_BASE_URL=http://localhost:11434/v1
-AGENT_OBSERVABILITY_LLM_MODEL=qwen3:8b
+```toml
+[local]
+base_url = "http://localhost:11434/v1"
+model = "qwen3:8b"
 ```
 
 Then run `make server` in one terminal and `make chat` in a second. You do not
-need `make model`: you start and stop your model yourself.
+need `make model`: you start and stop your model yourself. `make status` shows
+the model that the chat will use.
 
-The same settings work with a compatible LM Studio or vLLM endpoint that needs
-no API key. `.env.local` overrides `.env`, and both are ignored by Git.
+The same profile works with a compatible LM Studio or vLLM endpoint that needs
+no API key. Git ignores `models.local.toml`.
 This Ollama/Linux recipe has not been verified live here. Gemma 4 E4B on Apple
 silicon is the primary recipe.
 
@@ -143,19 +155,24 @@ silicon is the primary recipe.
 
 The host depends on one `Model.complete(...)` method. `APIModel` implements it
 with an OpenAI-compatible API call, whether the model runs locally or on a
-provider's server. Set the endpoint, model name and, when needed, API key in
-`.env.local`:
+provider's server. One switch selects the model: a profile. Add a profile to
+`models.local.toml`:
 
-```dotenv
-AGENT_OBSERVABILITY_LLM_BASE_URL=https://your-provider.example/v1
-AGENT_OBSERVABILITY_LLM_MODEL=your-tool-calling-model
-AGENT_OBSERVABILITY_LLM_API_KEY=your-provider-key
-AGENT_OBSERVABILITY_LLM_API_KEY_EXPIRES=2027-01-31
-AGENT_OBSERVABILITY_ALLOWED_HOSTS=your-provider.example
+```toml
+[provider]
+base_url = "https://your-provider.example/v1"
+model = "your-tool-calling-model"
 ```
 
-The app only sends the key to a loopback model or to an HTTPS host listed in
-`AGENT_OBSERVABILITY_ALLOWED_HOSTS`.
+Put the key, when the provider needs one, in `.env.local`:
+
+```dotenv
+AGENT_OBSERVABILITY_LLM_API_KEY=your-provider-key
+AGENT_OBSERVABILITY_LLM_API_KEY_EXPIRES=2027-01-31
+```
+
+The app only sends the key to a loopback model or to an allowed HTTPS host. A
+profile allows its own host for that run.
 
 On macOS, keep the key out of files entirely: `make key-set EXPIRES=2027-01-31`
 stores it in the Keychain, and the app reads it from there when it starts. Every key
@@ -163,16 +180,17 @@ needs an expiry date. The app refuses to start once it has passed, and
 `make rotate-key` replaces the key without downtime. [SECURITY.md](SECURITY.md)
 explains why, and what to lock down before you give an agent a shell.
 
-Then run `make server` and `make chat`, each in its own terminal. A hosted model
-needs no `make model`. Use your provider's actual
+Then run `make server PROFILE=provider` and `make chat PROFILE=provider`, each in
+its own terminal. A hosted model needs no `make model`. Without `PROFILE`, both
+use the local model: a hosted model never runs unless you name it. Use your provider's actual
 endpoint and model identifier; the block above shows the shape, not real values. A hosted
 endpoint receives the conversation and tool results and may charge for calls.
 The article shows [the one method](article.md#change-the-model-in-one-place)
 that a model must have, so you can write a class for an API with a different
 format. The tools and the business rules do not change with the model.
 
-To change the local model, stop `make model` first, set
-`AGENT_OBSERVABILITY_LLM_MODEL` to the new alias, then run
+To change the local model, stop `make model` first, set `model` under `[local]`
+in `models.local.toml` to the new alias, then run
 `make model LLM_MODEL=the-same-alias`. This keeps the serving process and the API
 request in agreement.
 

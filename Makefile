@@ -10,16 +10,26 @@ MLX_ENV     := DO_NOT_TRACK=1 RAPID_MLX_TELEMETRY=0 RAPID_MLX_DISABLE_VERSION_CH
 # The rapid-mlx command: this user's copy, or the copy in $(MODEL_USER) through sudo (it asks for your password).
 RAPID_MLX   := $(shell if command -v rapid-mlx >/dev/null 2>&1; then echo "env $(MLX_ENV) rapid-mlx"; \
 	elif [ -n "$(MODEL_USER)" ] && id "$(MODEL_USER)" >/dev/null 2>&1; then echo "sudo -iu $(MODEL_USER) -- env $(MLX_ENV) rapid-mlx"; fi)
+# One switch selects the model: a profile from models.toml. Plain make means the local model.
+# Without this default, a personal .env.local selects the model and nothing shows it.
+PROFILE     ?= local
+export PROFILE
 # Make variable names are case-sensitive. A lower-case profile= would be ignored without a
-# warning, and the app would use the model from .env.local.
+# warning, and the app would use the local model.
 ifneq ($(origin profile),undefined)
 $(error Write PROFILE=$(profile) in capitals)
 endif
 MCP_PORT    := 8000
 LLM_PORT    := 9000
+RUN_DIR     := .run
+# Seconds that make up waits. The first start downloads the model weights (about 5 GB).
+STARTUP_TIMEOUT ?= 1800
+MODEL_URL   := http://localhost:$(LLM_PORT)/v1/models
+DESK_URL    := http://localhost:$(MCP_PORT)
+PROBE       := curl --connect-timeout 1 --max-time 2 -sf
 
 .DEFAULT_GOAL := help
-.PHONY: help check-model model model-stop server chat verify check audit fmt key-status key-set rotate-key scan-secrets chat-offline server-offline
+.PHONY: help up status down check-model model model-stop server chat verify check audit fmt key-status key-set rotate-key scan-secrets chat-offline server-offline
 
 help:
 	@echo "Run: one terminal for each command. Ctrl+C stops it."
@@ -28,6 +38,10 @@ help:
 	@echo "  make chat      terminal 3: the chat; /quit or Ctrl+C to leave"
 	@echo "  make server PROFILE=haiku, then make chat PROFILE=haiku"
 	@echo "                 use a model profile from models.toml; no make model (SECURITY.md 2.3)"
+	@echo "Or start the model and the server in the background"
+	@echo "  make up        start both and wait until they answer; then run make chat"
+	@echo "  make status    which model the chat will use, and what answers on each port"
+	@echo "  make down      stop what make up started"
 	@echo "  make model-stop  stop the model server, also one that $(MODEL_USER) started"
 	@echo "Check"
 	@echo "  make verify    make check, then make audit"
@@ -68,6 +82,74 @@ server:
 
 chat:
 	$(UV) run --locked python -m agent_observability.chat
+
+# make model and make server in the background, with logs and process IDs in $(RUN_DIR).
+# A part that already answers is left as it is. After a wait that was too short,
+# make up again continues the wait: it does not start a second model.
+up:
+	@mkdir -p $(RUN_DIR)
+	@for part in model server; do \
+		kill -0 "$$(cat $(RUN_DIR)/$$part.pid 2>/dev/null)" 2>/dev/null || : > $(RUN_DIR)/$$part.pid; \
+	done
+	@if [ "$(PROFILE)" != local ]; then :; \
+	elif [ -s $(RUN_DIR)/model.pid ]; then \
+		echo "-> the model from an earlier make up still runs"; \
+	elif $(PROBE) $(MODEL_URL) >/dev/null; then \
+		echo "-> a model already answers on :$(LLM_PORT). make up uses it and make down will not stop it."; \
+	else \
+		$(MAKE) --no-print-directory check-model || exit 1; \
+		case "$(RAPID_MLX)" in sudo*) sudo -v || exit 1;; esac; \
+		echo "-> starting the local model on :$(LLM_PORT)"; \
+		nohup $(RAPID_MLX) serve $(LLM_MODEL) --port $(LLM_PORT) $(MLX_ARGS) > $(RUN_DIR)/model.log 2>&1 & \
+		echo $$! > $(RUN_DIR)/model.pid; \
+	fi
+	@if [ -s $(RUN_DIR)/server.pid ]; then \
+		echo "-> the pizza server from an earlier make up still runs"; \
+	elif $(PROBE) $(DESK_URL)/desk/snapshot >/dev/null; then \
+		echo "-> a pizza server already answers on :$(MCP_PORT). It can run older code from another folder:"; \
+		echo "   to test this folder, stop that server and run make up again."; \
+	else \
+		echo "-> starting the pizza server on :$(MCP_PORT)"; \
+		nohup $(UV) run --locked python -m agent_observability.pizza.server > $(RUN_DIR)/server.log 2>&1 & \
+		echo $$! > $(RUN_DIR)/server.pid; \
+	fi
+	@echo "-> waiting. The first start downloads the model (about 5 GB). To follow it: tail -f $(RUN_DIR)/model.log"; \
+	ready() { { [ "$(PROFILE)" != local ] || $(PROBE) $(MODEL_URL) >/dev/null; } \
+		&& $(PROBE) $(DESK_URL)/desk/snapshot >/dev/null; }; \
+	for i in $$(seq 1 $(STARTUP_TIMEOUT)); do \
+		ready && break; \
+		for part in model server; do \
+			pid="$$(cat $(RUN_DIR)/$$part.pid 2>/dev/null)"; \
+			if [ -n "$$pid" ] && ! kill -0 "$$pid" 2>/dev/null; then \
+				echo; echo "ERROR: the $$part stopped while it started. The end of $(RUN_DIR)/$$part.log:" >&2; \
+				tail -n 5 $(RUN_DIR)/$$part.log >&2; exit 1; \
+			fi; \
+		done; \
+		printf .; sleep 1; \
+	done; echo; \
+	ready || { echo "ERROR: not ready after $(STARTUP_TIMEOUT) seconds. What was started still runs: look at $(RUN_DIR)/*.log," >&2; \
+		echo "       then run make up again to wait longer, or make down to stop." >&2; exit 1; }
+	@$(MAKE) --no-print-directory status
+
+# The first line is the model that make chat will use with this PROFILE.
+status:
+	@$(UV) run --locked python -c 'from agent_observability.config import describe_model; print(describe_model())'
+	@served="$$($(PROBE) $(MODEL_URL) | grep -o '"id": *"[^"]*"' | head -n 1 | cut -d'"' -f4)"; \
+		echo "  :$(LLM_PORT)  local model  $${served:-down}"
+	@if $(PROBE) $(DESK_URL)/desk/snapshot >/dev/null; then echo "  :$(MCP_PORT)  pizza server UP, delivery desk at $(DESK_URL)"; \
+		else echo "  :$(MCP_PORT)  pizza server down"; fi
+
+# Stops only what make up started. A model that another terminal started stays.
+# When the model runs as $(MODEL_USER), stopping it asks for your password.
+down:
+	@started=; [ -s $(RUN_DIR)/model.pid ] && started=yes; \
+	for file in $(RUN_DIR)/model.pid $(RUN_DIR)/server.pid; do \
+		[ -s "$$file" ] && kill "$$(cat "$$file")" 2>/dev/null; : > "$$file"; \
+	done; sleep 1; \
+	if ! $(PROBE) $(MODEL_URL) >/dev/null; then echo "stopped."; \
+	elif [ -n "$$started" ]; then \
+		$(MAKE) --no-print-directory model-stop; \
+	else echo "A model that make up did not start still answers on :$(LLM_PORT). To stop it, run: make model-stop"; fi
 
 verify: check audit
 
