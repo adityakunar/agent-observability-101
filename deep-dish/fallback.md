@@ -129,12 +129,7 @@ mistake for consent.
 Same result, no words to choose, and the re-ask adds 8 tokens to the request.
 The two cues and the code that picked between them went away.
 
-One more echo came first. The guard from round 4 refused a re-ask's
-`confirm_order` with the host's generic text, “Tool 'confirm_order' is not
-available to this agent.” The model believed it. When the customer then said
-yes, it answered that the tool was unavailable and it could not place the order. Replayed, the order went
-through 0 times out of 10. With a refusal that said “show the total and ask”,
-10 out of 10. With no words in the cue, the guard had no reason left, so
+With no words in the cue, the order guard from round 4 had no reason left, so
 [#14](https://github.com/adityakunar/agent-observability-101/pull/14) removed
 it. Real approval belongs on the server, and Chapter 1 lists it under
 [What is still broken](../article.md#what-is-still-broken).
