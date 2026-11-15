@@ -1,5 +1,11 @@
 name: Verify
-on: [push, pull_request, workflow_dispatch]
+# One run for each change: a pull request runs on its own event, and a push
+# runs only on main. With plain `push`, a branch that has a pull request ran twice.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
