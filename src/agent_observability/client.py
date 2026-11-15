@@ -69,14 +69,12 @@ class Agent:
         self.available: dict[str, dict[str, Any]] = {}  # the same catalog, by tool name
         self.session_tools: set[str] = set()  # tools that need the session ID
         self.mutation_tools: set[str] = set()  # tools that can change business records
-        self.destructive_tools: set[str] = set()  # tools whose effect cannot be undone
 
     async def prepare(self) -> None:
         """Read the server's tool list and build the catalog that the model sees."""
         self.available.clear()
         self.session_tools.clear()
         self.mutation_tools.clear()
-        self.destructive_tools.clear()
         for tool in await self.client.list_tools():
             if self.allowed_tools is not None and tool.name not in self.allowed_tools:
                 continue  # the caller limited this agent to a subset of the tools
@@ -90,9 +88,6 @@ class Agent:
             # A tool without the read-only hint can change business records.
             if not (tool.annotations and tool.annotations.read_only_hint):
                 self.mutation_tools.add(tool.name)
-            # The server marks a tool whose effect cannot be undone, such as placing the order.
-            if tool.annotations and tool.annotations.destructive_hint:
-                self.destructive_tools.add(tool.name)
             self.available[tool.name] = {
                 "type": "function",
                 "function": {
@@ -118,18 +113,11 @@ class Agent:
         cue = False  # add the cue to the next model request
         try:
             for _ in range(self.max_tool_iterations):
-                request = self.messages
                 advertised = {tool["function"]["name"] for tool in self.tools}
-                if cue:
-                    # After a silent reply, the request carries the cue. The cue goes on a
-                    # copy, so it does not stay in the conversation. The customer did not
-                    # write it, so the host refuses a tool that cannot be undone in this
-                    # step. The customer's next message can use it. The model still gets
-                    # the full tool list: a changed list at the start of the request makes
-                    # the server read the whole conversation again.
-                    request = [*self.messages, CUE]
-                    advertised -= self.destructive_tools
-                    cue = False
+                # After a silent reply, the next request carries the cue. The cue goes on
+                # a copy, so it does not stay in the conversation.
+                request = [*self.messages, CUE] if cue else self.messages
+                cue = False
                 reply = await self.model.complete(request, self.tools, on_text=on_text)
                 text = reply.text or ""
                 if not reply.tool_calls and not text.strip():

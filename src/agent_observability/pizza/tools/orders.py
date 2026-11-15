@@ -10,8 +10,7 @@ from agent_observability.pizza.domain import Order
 mcp = FastMCP("Lantern Pizza Orders")
 
 
-# An order that is placed cannot be undone. The host reads this hint.
-@mcp.tool(annotations={"destructiveHint": True})
+@mcp.tool()
 def confirm_order(session_id: str) -> dict[str, Any]:
     """Place the mock order after customer approval. Requires a non-empty cart and a saved delivery address."""
     cart = state.get_cart(session_id)

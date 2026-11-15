@@ -317,29 +317,3 @@ async def test_silence_in_the_middle_of_a_task_can_continue_with_a_tool():
     assert turn.calls == ["browse_menu", "add_extra"] and turn.reasks == 1
     reask, _ = model.requests[2]
     assert reask[-1] == CUE and CUE not in agent.messages
-
-
-async def test_a_reask_cannot_place_the_order_but_the_customer_can():
-    address = {"address": "Lantern Street 12, Ghent"}
-    model = ScriptedModel(
-        [
-            Reply(tool_calls=[ToolCall("1", "add_extra", {"item_id": "coke"})]),
-            Reply(tool_calls=[ToolCall("2", "set_delivery_address", address)]),
-            Reply(None),
-            # The model asks to place the order in the step that the host's cue started.
-            Reply(tool_calls=[ToolCall("3", "confirm_order", {})]),
-            Reply("Shall I place the order?"),
-            Reply(tool_calls=[ToolCall("4", "confirm_order", {})]),
-            Reply("Your order is placed."),
-        ]
-    )
-    async with Client(server.mcp) as client:
-        agent = Agent(client, model, PROMPT)
-        await agent.prepare()
-        turn = await agent.send("One coke to Lantern Street 12, Ghent.")
-        # The tool list stays the same in each request; the host refuses the call.
-        assert len({json.dumps(tools) for _, tools in model.requests}) == 1
-        assert turn.calls[-1] == "confirm_order (rejected)" and not state.orders
-        # After the customer's own message, the host runs it.
-        turn = await agent.send("Yes, place it.")
-    assert turn.calls == ["confirm_order"] and len(state.orders) == 1
