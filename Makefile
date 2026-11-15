@@ -105,12 +105,21 @@ up:
 		nohup $(UV) run --locked python -m agent_observability.pizza.server > $(RUN_DIR)/server.log 2>&1 & \
 		echo $$! > $(RUN_DIR)/server.pid; \
 	fi
-	@printf '%s' "-> waiting (logs: $(RUN_DIR)/*.log)"; \
+	@echo "-> waiting. The first start downloads the model (about 5 GB). To follow it: tail -f $(RUN_DIR)/model.log"; \
+	ready() { { [ "$(PROFILE)" != local ] || $(PROBE) $(MODEL_URL) >/dev/null; } \
+		&& $(PROBE) $(DESK_URL)/desk/snapshot >/dev/null; }; \
 	for i in $$(seq 1 $(STARTUP_TIMEOUT)); do \
-		{ [ "$(PROFILE)" != local ] || $(PROBE) $(MODEL_URL) >/dev/null; } \
-			&& $(PROBE) $(DESK_URL)/desk/snapshot >/dev/null && break; \
+		ready && break; \
+		for part in model server; do \
+			pid="$$(cat $(RUN_DIR)/$$part.pid 2>/dev/null)"; \
+			if [ -n "$$pid" ] && ! kill -0 "$$pid" 2>/dev/null; then \
+				echo; echo "ERROR: the $$part stopped while it started. The end of $(RUN_DIR)/$$part.log:" >&2; \
+				tail -n 5 $(RUN_DIR)/$$part.log >&2; exit 1; \
+			fi; \
+		done; \
 		printf .; sleep 1; \
-	done; echo
+	done; echo; \
+	ready || { echo "ERROR: not ready after $(STARTUP_TIMEOUT) seconds. Look at $(RUN_DIR)/*.log, or wait longer: make up STARTUP_TIMEOUT=3600" >&2; exit 1; }
 	@$(MAKE) --no-print-directory status
 
 # The first line is the model that make chat will use with this PROFILE.
