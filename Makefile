@@ -84,10 +84,16 @@ chat:
 	$(UV) run --locked python -m agent_observability.chat
 
 # make model and make server in the background, with logs and process IDs in $(RUN_DIR).
-# A part that already answers is left as it is.
+# A part that already answers is left as it is. After a wait that was too short,
+# make up again continues the wait: it does not start a second model.
 up:
 	@mkdir -p $(RUN_DIR)
+	@for part in model server; do \
+		kill -0 "$$(cat $(RUN_DIR)/$$part.pid 2>/dev/null)" 2>/dev/null || : > $(RUN_DIR)/$$part.pid; \
+	done
 	@if [ "$(PROFILE)" != local ]; then :; \
+	elif [ -s $(RUN_DIR)/model.pid ]; then \
+		echo "-> the model from an earlier make up still runs"; \
 	elif $(PROBE) $(MODEL_URL) >/dev/null; then \
 		echo "-> a model already answers on :$(LLM_PORT). make up uses it and make down will not stop it."; \
 	else \
@@ -97,7 +103,9 @@ up:
 		nohup $(RAPID_MLX) serve $(LLM_MODEL) --port $(LLM_PORT) $(MLX_ARGS) > $(RUN_DIR)/model.log 2>&1 & \
 		echo $$! > $(RUN_DIR)/model.pid; \
 	fi
-	@if $(PROBE) $(DESK_URL)/desk/snapshot >/dev/null; then \
+	@if [ -s $(RUN_DIR)/server.pid ]; then \
+		echo "-> the pizza server from an earlier make up still runs"; \
+	elif $(PROBE) $(DESK_URL)/desk/snapshot >/dev/null; then \
 		echo "-> a pizza server already answers on :$(MCP_PORT). It can run older code from another folder:"; \
 		echo "   to test this folder, stop that server and run make up again."; \
 	else \
@@ -119,7 +127,8 @@ up:
 		done; \
 		printf .; sleep 1; \
 	done; echo; \
-	ready || { echo "ERROR: not ready after $(STARTUP_TIMEOUT) seconds. Look at $(RUN_DIR)/*.log, or wait longer: make up STARTUP_TIMEOUT=3600" >&2; exit 1; }
+	ready || { echo "ERROR: not ready after $(STARTUP_TIMEOUT) seconds. What was started still runs: look at $(RUN_DIR)/*.log," >&2; \
+		echo "       then run make up again to wait longer, or make down to stop." >&2; exit 1; }
 	@$(MAKE) --no-print-directory status
 
 # The first line is the model that make chat will use with this PROFILE.
