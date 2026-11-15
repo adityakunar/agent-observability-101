@@ -29,7 +29,7 @@ What you take away from this chapter:
 This chapter is for Python users who can read functions, type hints and `async`
 calls. You do not need experience with agents or with the libraries used here.
 The [README](README.md#start-the-assistant-and-delivery-desk) gives the setup:
-three commands, each in its own terminal.
+`make up`, then `make chat`.
 
 ## The app on one page
 
@@ -193,7 +193,7 @@ from top to bottom; each decision has a comment.
    requests, gives the results to the model and asks again. It stops when the
    model answers with text.
 
-The host keeps four rules. No wording from the model changes them.
+The host keeps six rules. No wording from the model changes them.
 
 | Rule | Why |
 |---|---|
@@ -201,6 +201,11 @@ The host keeps four rules. No wording from the model changes them.
 | It adds its own session ID to each call. | The model cannot select the cart of a different chat. |
 | It does not run the same business action two times in one turn. | A small model sometimes repeats a call, and the customer gets two pizzas. |
 | It stops at 12 model requests or 16 tool calls for each message. | A loop that makes no progress must end. |
+| It keeps its own words out of the history that the model reads. | A model copies what it finds there. A host message in the history comes back as the model's own words. |
+| It asks a silent model again one time, and refuses the order tool in that step. | A small model sometimes ends its turn with no text after a tool result. The request to speak comes from the host, not from the customer, so it must not place an order. |
+
+The chat prints a note when the host asked again or wrote the answer itself, so
+you can count how often that happens.
 
 When a rule stops a call, the model gets a tool result that starts with
 `Rejected:`. The model can read it and correct itself. When a budget stops the
@@ -210,7 +215,9 @@ a summary of what was done.
 For the third rule, the host must know which tools change records. Each
 read-only tool says so with an MCP annotation:
 `@mcp.tool(annotations={"readOnlyHint": True})`. The host treats a tool without
-this hint as a business action. The hint is a description, not a lock: the code
+this hint as a business action. `confirm_order` has a second hint,
+`destructiveHint`: an order that is placed cannot be undone. The host uses it
+for the last rule in the table. A hint is a description, not a lock: the code
 and the tests must keep it true.
 
 ### The tools own the facts and the rules
