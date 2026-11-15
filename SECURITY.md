@@ -47,25 +47,25 @@ read the same item. Then one key serves all your projects.
 
 1. If the key is not in the Keychain, type `security add-generic-password -s anthropic -a "$USER" -w`.
 2. Paste the key when the prompt shows.
-3. In `.env.local`, add these lines:
+3. In `models.local.toml`, add a profile:
 
-   ```dotenv
-   AGENT_OBSERVABILITY_LLM_BASE_URL=https://api.anthropic.com/v1
-   AGENT_OBSERVABILITY_LLM_MODEL=claude-sonnet-5-5
-   AGENT_OBSERVABILITY_ALLOWED_HOSTS=api.anthropic.com
-   AGENT_OBSERVABILITY_LLM_KEYCHAIN_SERVICE=anthropic
-   AGENT_OBSERVABILITY_LLM_API_KEY_EXPIRES=YYYY-MM-DD
-   AGENT_OBSERVABILITY_LLM_TEMPERATURE=
+   ```toml
+   [sonnet]
+   base_url = "https://api.anthropic.com/v1"
+   model = "claude-sonnet-5-5"
+   keychain_service = "anthropic"
+   key_expires = "YYYY-MM-DD"
+   temperature = "omit"
    ```
 
-4. Type `make key-status`. Make sure that the output shows `source=keychain:anthropic`.
+4. Type `make key-status PROFILE=sonnet`. Make sure that the output shows `source=keychain:anthropic`.
 
-The empty `LLM_TEMPERATURE` removes the temperature from each request. Newer Claude models
-refuse a low temperature. For NVIDIA, use `https://integrate.api.nvidia.com/v1`, the host
-`integrate.api.nvidia.com` and the service `nvidia`.
+`temperature = "omit"` removes the temperature from each request. Newer Claude models
+refuse a low temperature. For NVIDIA, use `https://integrate.api.nvidia.com/v1` and the
+service `nvidia`. The profile allows its own host for that run.
 
 NOTE: A key that another tool stored has no expiry date in the Keychain. Put the date from the
-provider console in `AGENT_OBSERVABILITY_LLM_API_KEY_EXPIRES`. Then the expiry checks work.
+provider console in `key_expires`. Then the expiry checks work.
 
 To test a different key one time, set `AGENT_OBSERVABILITY_LLM_API_KEY_ENV=ANTHROPIC_API_KEY`.
 When that variable has a value, the app uses it. When it is empty, the app reads the Keychain.
@@ -94,7 +94,8 @@ To use a profile:
 A hosted profile does not need `make model`.
 
 The profile adds its own host to the allowlist for that run only. Other hosts stay blocked.
-If you do not set `PROFILE`, the settings in `.env.local` apply.
+If you do not set `PROFILE`, `make` uses the `local` profile. Thus a hosted model runs only
+when you name it. `make status` shows the model that the chat will use.
 
 To add an expiry date or a personal profile, make the file `models.local.toml`. Git ignores it.
 Example:
@@ -160,11 +161,13 @@ Before the app sends the key, it does a check of the model URL (`netpolicy.check
 - Another host must use HTTPS.
 - Another host must be in `AGENT_OBSERVABILITY_ALLOWED_HOSTS`.
 
-Example `.env.local` for a hosted model:
+A profile adds the host of its `base_url` to this list for that run. Example
+`models.local.toml` for a hosted model:
 
-```dotenv
-AGENT_OBSERVABILITY_LLM_BASE_URL=https://api.your-provider.example/v1
-AGENT_OBSERVABILITY_ALLOWED_HOSTS=api.your-provider.example
+```toml
+[provider]
+base_url = "https://api.your-provider.example/v1"
+model = "your-tool-calling-model"
 ```
 
 The check uses exact names. Thus `api.your-provider.example.evil.test` fails. If the

@@ -1,10 +1,11 @@
 # Model profiles. Pick one at run time: make server PROFILE=haiku, then make chat PROFILE=haiku.
-# No profile means the AGENT_OBSERVABILITY_LLM_* settings in .env.local apply as before.
+# No profile means [local]. make status shows the model that the chat will use.
 # Keys are not in this file. Each profile names a Keychain service (shared with other tools); the
 # key is the item with that service and your macOS user as the account:
 #   security add-generic-password -s anthropic -a "$USER" -w
 # A hosted profile's host is added to the allowlist of outbound hosts for that run only.
 # Personal additions (expiry dates, extra profiles) go in models.local.toml (not committed).
+# The same file can change a profile, for example [local] for a model on another port.
 
 [local]
 base_url = "http://localhost:9000/v1"

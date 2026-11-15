@@ -63,3 +63,23 @@ def test_audit_explains_an_old_uv(tmp_path: Path) -> None:
     assert result.returncode != 0
     assert "uv self update" in result.stderr
     assert "--locked" not in (tmp_path / "calls.log").read_text()
+
+
+@pytest.mark.parametrize(("argument", "profile"), [([], "local"), (["PROFILE=haiku"], "haiku")])
+def test_one_switch_selects_the_model(tmp_path: Path, argument: list[str], profile: str) -> None:
+    """Plain make means the local model, also when .env.local names a different one."""
+    (tmp_path / "Makefile").write_text(MAKEFILE.read_text())
+    uv = tmp_path / "uv"
+    uv.write_text('#!/bin/sh\necho "PROFILE=$PROFILE" > seen\n')
+    uv.chmod(493)
+    environment = {key: value for key, value in os.environ.items() if key != "PROFILE"}
+    subprocess.run(
+        ["make", "chat", f"UV={uv}", *argument],
+        cwd=tmp_path,
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=True,
+    )
+    assert (tmp_path / "seen").read_text() == f"PROFILE={profile}\n"
