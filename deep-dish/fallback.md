@@ -1,9 +1,42 @@
-# Deep-dish: the fallback, four fixes and four new behaviours
+# Deep-dish: when the model replies with nothing
 
-Chapter 1's host has two small rules about a model that says nothing. It keeps
-its own words out of the history, and it asks a silent model again with a
-message that has no words. Two lines in a table. They took four rounds to find,
-and each fix made the model do something new.
+You are building an agent. The model calls a tool, your code runs it and sends
+back the result, and the model answers with nothing: no text, no tool call, no
+error. Your customer is waiting. What do you show them, and what do you tell
+the model?
+
+We hit this with the pizza-ordering agent in [Chapter 1](../article.md), on a
+small model running on a laptop. Our answer took four rounds. Each fix solved
+the problem in front of us and made the model do something new: copy our words
+back, claim work it had not done, place an order nobody approved, and in the
+last round, slow every re-ask down. The fix that held is a message with no
+words in it.
+
+This page gives you:
+
+- why a small model goes silent, and how to see it in the prompt;
+- why anything your code writes into the chat comes back as the model's words;
+- why a re-ask in words is an instruction you did not mean to give;
+- the fix that held: an empty message;
+- a way to test a fix: replay the same request ten times.
+
+**The setup.** The local models were Gemma 4 E4B and Nemotron 3.5 Bolt E4B
+(built on Gemma 4). Whenever the model went silent, we saved the request.
+Then we sent that saved request again 10 times, at temperature 0.2, and
+counted what came back. We call one saved request a *moment*.
+
+**Five words you will meet.**
+
+- **Host**: your code between the customer and the model. It sends the chat
+  to the model, runs the tools the model asks for, and shows the replies.
+- **History**: the list of messages the host sends with every request. The
+  model sees nothing else. The customer's messages go in as *user* messages.
+- **Chat template**: the recipe that turns the history into the plain text
+  the model reads, with markers for whose turn it is.
+- **Re-ask**: when the model is silent, the host sends the request once more
+  with one message added at the end.
+- **Prefix cache**: the model server keeps its work on a prompt. When the next
+  prompt starts the same way, it skips that part.
 
 | Round | What the host did | What the model did next |
 |---|---|---|
@@ -15,10 +48,8 @@ and each fix made the model do something new.
 
 ## The silence
 
-A small local model sometimes answers a tool result with nothing: no text, no
-tool call, no error. To see why, render the prompt with the model's own chat
-template. This is the end of a real request, right after the order was
-confirmed:
+Render the prompt with the model's own chat template and the cause is plain.
+This is the end of a real request, right after the order was confirmed:
 
 ```text
 <|turn>user
@@ -32,21 +63,21 @@ purpose: the model is still inside its own turn. Its next token can be more
 text, another tool call, or end-of-turn. At some moments it picks end-of-turn,
 and that one token is the whole reply.
 
-The original host answered for it: “The model returned no answer. Completed
-actions: … review the cart or orders before continuing.” It showed the
-customer that text, and it saved it in the history as the assistant's message.
-
 ## Round 1: the echo
+
+Our first host filled the gap with a fallback: “The model returned no answer.
+Completed actions: … review the cart or orders before continuing.” It showed
+the customer that text, and saved it in the history as the model's reply.
 
 A history is not a log for the model. It is a set of examples. After two or
 three fallbacks, the model learned what comes after a tool result, and wrote
 the fallback itself.
 
-We replayed 8 recorded silent moments 10 times each, with the app's settings:
+We replayed 8 silent moments 10 times each:
 
 | | Silent | Copied the fallback (1 moment × 10) |
 |---|---|---|
-| Nemotron 3.5 Bolt E4B (built on Gemma 4) | 78 of 80 | 10 of 10 |
+| Nemotron 3.5 Bolt E4B | 78 of 80 | 10 of 10 |
 | Gemma 4 E4B | 17 of 80 | 0 of 10 |
 | either model, with a user message at the end | 0 of 80 | 0 of 10 |
 
@@ -57,8 +88,8 @@ both: the fallback goes to the customer only, and a silent model gets one
 re-ask with “Reply to the customer about the result above.” on a copy of the
 history.
 
-A hosted model with native tool calling went silent 0 times in 310 of the same
-requests. Its API always starts a new turn after a tool result.
+A hosted model went silent 0 times in 310 of the same requests. Its API
+always starts a new turn for the model after a tool result.
 
 ## Round 2: the false claim
 
@@ -82,8 +113,8 @@ A small model follows the host's words literally. “Reply” means “report”
 ## Round 3: the unapproved order
 
 So we tried a cue that allows more: “Continue: call the next tool, or reply to
-the customer about the result above.” On 20 recorded silent moments it fixed
-the read: 10 of 10 resumed the adds that the customer asked for.
+the customer about the result above.” On 20 silent moments it fixed the read:
+10 of 10 resumed the adds that the customer asked for.
 
 It also found a new way to fail. Right after a delivery address was saved, it
 called `confirm_order` 10 times out of 10. The customer had said “confirm it”
@@ -91,8 +122,8 @@ two turns earlier, but had never seen the delivery fee. The host's word
 “continue” stood in for the customer's yes.
 
 [#11](https://github.com/adityakunar/agent-observability-101/pull/11) chose the
-cue by the last tool, which the host already knows from `readOnlyHint`:
-“reply” after an action, “continue” after a read. And the re-ask request was
+cue by the last tool: “reply” after an action, “continue” after a read. Each
+tool already says which it is, with a `readOnlyHint` flag. And the re-ask was
 sent without `confirm_order` in its tool list, so a re-ask could never place an
 order.
 
@@ -100,8 +131,7 @@ order.
 
 That guard had a cost that no answer showed. The tool list sits near the top
 of the prompt. Change it and the prompt differs from almost the first token, so
-the model server cannot reuse what it had cached and reads the whole
-conversation again.
+the prefix cache misses and the server reads the whole conversation again.
 
 | Re-ask request | Prompt cached (median) | No cache hit | Time (median) |
 |---|---|---|---|
@@ -140,7 +170,8 @@ it. Real approval belongs on the server, and Chapter 1 lists it under
   back as the model's own words. Show host messages to the user, not to the
   model.
 - **A silent model needs a turn, not a sentence.** If your template leaves the
-  model inside its turn after a tool result, open a new one.
+  model inside its turn after a tool result, open a new one with an empty user
+  message.
 - **Every word your host sends is an instruction.** A small model will follow
   it, including the parts you did not mean.
 - **The tool list is part of your cache key.** Gate a tool in code, not by
@@ -149,7 +180,6 @@ it. Real approval belongs on the server, and Chapter 1 lists it under
   one thing. One live chat showed the false claim. The replay turned it into
   10 out of 10, and into a test for every cue that followed.
 
-Round 1 used two small local models; the later rounds used Gemma 4 E4B only.
-Each cell is 10 replays at temperature 0.2, and only one of the 20 moments is
-in the middle of a task. They show the
-mechanism. They are not a rate for your model.
+Round 1 used both local models; the later rounds used Gemma 4 E4B only. Each
+cell is 10 replays, and only one of the 20 moments is in the middle of a task.
+They show the mechanism. They are not a rate for your model.
