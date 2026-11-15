@@ -110,7 +110,7 @@ up:
 # The first line is the model that make chat will use with this PROFILE.
 status:
 	@$(UV) run --locked python -c 'from agent_observability.config import describe_model; print(describe_model())'
-	@served="$$($(PROBE) $(MODEL_URL) | grep -o '"id": *"[^"]*"' | head -n 1)"; \
+	@served="$$($(PROBE) $(MODEL_URL) | grep -o '"id": *"[^"]*"' | head -n 1 | cut -d'"' -f4)"; \
 		echo "  :$(LLM_PORT)  local model  $${served:-down}"
 	@if $(PROBE) $(DESK_URL)/desk/snapshot >/dev/null; then echo "  :$(MCP_PORT)  pizza server UP, delivery desk at $(DESK_URL)"; \
 		else echo "  :$(MCP_PORT)  pizza server down"; fi
