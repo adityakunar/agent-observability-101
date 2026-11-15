@@ -3,11 +3,39 @@
 The assistant says the order is placed. Did it happen? That is the question this
 chapter answers.
 
-Here is the problem. We sent a scripted reply after a real menu lookup: “Our menu
-includes Sushi Pizza for €1.00.” The cart tools reject the invented item. The host
-still shows the sentence to the customer. The lookup succeeded, and the answer is
-wrong. Both are true. [tests/test_sushi_pizza.py](tests/test_sushi_pizza.py)
-reproduces it in a few lines, without a model.
+Here is the problem, from a chat with the local model of this chapter. The cart
+holds one BBQ Chicken pizza.
+
+> **Customer:** I'm allergic to celery. Is there celery in the BBQ sauce? If so,
+> swap it for a personal Margherita, thin crust.
+>
+> **Assistant:** The BBQ sauce contains Celery. I have removed the BBQ Chicken
+> pizza from your order. I can add a personal Margherita pizza with thin crust
+> for you. Would you like me to proceed with that?
+
+| | In this turn |
+|---|---|
+| **Said** | “I have removed the BBQ Chicken pizza from your order.” |
+| **Ran** | one tool, `faq_read`, which reads the allergen document |
+| **Changed** | nothing: the cart still holds the BBQ Chicken |
+
+The answer about the allergen is correct. The next sentence is false. In the
+chat that we recorded, the customer went on and approved the order, and the
+confirmed order held the pizza with celery.
+
+The shop is a demo and the menu is made up. The failure is not: a real shop
+with this agent delivers that pizza to that customer.
+
+This is not a rare accident. We typed these two messages into a new chat many
+times. Most replies said that the pizza was removed when it was not, and some
+chats made the swap. We give no number: it moved between our own runs, and
+yours will differ. [Try it](README.md#then-see-a-false-claim).
+
+You can make the same failure without a model.
+[tests/test_sushi_pizza.py](tests/test_sushi_pizza.py) sends a scripted reply
+after a real menu lookup: “Our menu includes Sushi Pizza for €1.00.” The cart
+tools reject the invented item, and the host still shows the sentence to the
+customer. The lookup succeeded, and the answer is wrong. Both are true.
 
 **The idea of this chapter:** a fluent reply does not prove an action. Keep three
 things apart, then compare them.
@@ -29,7 +57,7 @@ What you take away from this chapter:
 This chapter is for Python users who can read functions, type hints and `async`
 calls. You do not need experience with agents or with the libraries used here.
 The [README](README.md#start-the-assistant-and-delivery-desk) gives the setup:
-three commands, each in its own terminal.
+`make up`, then `make chat`.
 
 ## The app on one page
 
@@ -169,10 +197,12 @@ delivery desk after each message.
 2. *Remove the garlic bread.* The line goes, and the discount goes too: a deal
    stays only while the cart has the items that the deal needs.
 3. *Add the garlic bread again and apply the deal.*
-4. *Confirm my order.* There is no address, so `confirm_order` refuses and the
-   cart does not change. The model reads the refusal and asks for the address.
+4. *Confirm my order.* There is no address, so no order is placed and the cart
+   does not change. The model asks for the address. If it calls `confirm_order`
+   first, the tool refuses and the model reads the refusal.
 5. *Damrak 1, 1012 LG Amsterdam.* Then approve the order. Delivery adds €1.99,
-   and the total is €20.96.
+   and the total is €20.96. Sometimes the assistant places the order before you
+   approve: see [What is still broken](#what-is-still-broken).
 
 ![A confirmed order on the delivery desk, with the address, the deal saving and the total.](resources/screenshots/confirmed-order.jpg)
 
@@ -193,7 +223,7 @@ from top to bottom; each decision has a comment.
    requests, gives the results to the model and asks again. It stops when the
    model answers with text.
 
-The host keeps four rules. No wording from the model changes them.
+The host keeps six rules. No wording from the model changes them.
 
 | Rule | Why |
 |---|---|
@@ -201,6 +231,11 @@ The host keeps four rules. No wording from the model changes them.
 | It adds its own session ID to each call. | The model cannot select the cart of a different chat. |
 | It does not run the same business action two times in one turn. | A small model sometimes repeats a call, and the customer gets two pizzas. |
 | It stops at 12 model requests or 16 tool calls for each message. | A loop that makes no progress must end. |
+| It keeps its own words out of the history that the model reads. | A model copies what it finds there. A host message in the history comes back as the model's own words. |
+| It asks a silent model again one time, with a message that has no words. | A small model sometimes ends its turn with no text after a tool result. An empty message starts a new turn. A message with words is an instruction, and a small model follows it literally. |
+
+The chat prints a note when the host asked again or wrote the answer itself, so
+you can count how often that happens.
 
 When a rule stops a call, the model gets a tool result that starts with
 `Rejected:`. The model can read it and correct itself. When a budget stops the
@@ -326,10 +361,26 @@ can send what it reads. [SECURITY.md](SECURITY.md) gives each step:
 - The server accepts only requests from your own machine.
 - `make verify` scans the locked dependencies for known vulnerabilities.
 
+## What is still broken
+
+We left three faults in the app. Each one is the subject of a later chapter.
+
+- **A claim is not checked.** The host shows the text of the model as it is. The
+  celery swap at the top of this chapter is the result.
+- **An order can be placed without your yes.** The prompt tells the model to show
+  the total and ask before it confirms. No code checks that. In our chats the
+  model sometimes saved the address and confirmed the order in one turn, so the
+  customer never saw the delivery fee. We left it in on purpose: a rule that
+  lives only in the prompt is a request, and this is what a request looks like
+  when it is ignored.
+- **The address is not validated.** The tool saved made-up addresses, a moon base
+  among them.
+
 ## What Chapter 1 does not claim
 
-- **No figure for model reliability.** The Sushi Pizza test shows what the host
-  permits. It does not measure how often a real model invents an item.
+- **No figure for model reliability.** The opening shows that the false claim
+  happens, and the Sushi Pizza test shows what the host permits. Neither measures
+  how often a real model says something false.
 - **No trace.** The FAQ record is for the full server and holds only the recent
   lookups. It cannot connect a document to one answer.
 - **No benchmark.** The `llm>` line describes one request under one set of
