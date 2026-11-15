@@ -119,7 +119,8 @@ class Agent:
                 text = reply.text or ""
                 if not reply.tool_calls and not text.strip():
                     # The reply is silent: no tool request and no text. Some models end
-                    # their turn like this after a tool result. Ask again, one time.
+                    # their turn like this after a tool result. Ask again, one time for
+                    # each customer message; a second silence gets the host's answer.
                     if not turn.reasks:
                         turn.reasks += 1
                         cue = True

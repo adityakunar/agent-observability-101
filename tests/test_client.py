@@ -8,7 +8,7 @@ from fastmcp import Client
 
 from agent_observability.chat import PROMPT
 from agent_observability.client import CUE, Agent
-from agent_observability.model import Reply, ToolCall
+from agent_observability.model import ModelError, Reply, ToolCall
 from agent_observability.pizza import server, state
 
 
@@ -286,3 +286,16 @@ async def test_fallback_goes_to_the_customer_and_not_into_the_history():
         # The model's next request must not hold the host's words as its own.
         await agent.send("What is in my cart?")
     assert not any("returned no answer" in str(m["content"]) for m in model.requests[-1][0])
+
+
+async def test_failed_model_request_stays_out_of_the_history():
+    class FailingModel:
+        async def complete(self, messages, tools, *, on_text=None):
+            raise ModelError("The model server did not answer.")
+
+    async with Client(server.mcp) as client:
+        agent = Agent(client, FailingModel(), PROMPT)
+        await agent.prepare()
+        turn = await agent.send("One coke.")
+    assert turn.fallback and turn.error and "did not answer" in turn.text
+    assert [m["role"] for m in agent.messages] == ["system", "user"]
