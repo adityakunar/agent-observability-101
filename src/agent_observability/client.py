@@ -22,6 +22,9 @@ from fastmcp.exceptions import ToolError
 
 from agent_observability.model import Model, ModelError, Reply, TextCallback, ToolCall
 
+# The cue that the host adds when it asks a silent model again.
+CUE = {"role": "user", "content": "Reply to the customer about the result above."}
+
 
 @dataclass
 class Turn:
@@ -34,6 +37,8 @@ class Turn:
     coercions: int = 0  # arguments whose type the host repaired
     exhausted: bool = False  # the step budget or the tool-call budget stopped the turn
     duplicates: int = 0  # repeated business actions that the host did not run again
+    reasks: int = 0  # silent replies that the host asked again, with a cue to speak
+    fallback: bool = False  # the host wrote the answer, because the model gave none
     error: str | None = None  # the error text, if a model request failed
 
 
@@ -102,22 +107,35 @@ class Agent:
         turn = Turn("")
         completed: dict[str, str] = {}  # business actions done in this turn, with their results
         dispatched = 0  # tool calls made in this turn
+        cue = False  # add the cue to the next model request
         try:
             for _ in range(self.max_tool_iterations):
                 advertised = {tool["function"]["name"] for tool in self.tools}
-                reply = await self.model.complete(self.messages, self.tools, on_text=on_text)
+                # After a silent reply, the next request carries a cue to speak. The cue
+                # goes on a copy, so it does not stay in the conversation.
+                request = [*self.messages, CUE] if cue else self.messages
+                cue = False
+                reply = await self.model.complete(request, self.tools, on_text=on_text)
+                text = reply.text or ""
+                if not reply.tool_calls and not text.strip():
+                    # The reply is silent: no tool request and no text. Some models end
+                    # their turn like this after a tool result. Ask again, one time for
+                    # each customer message; a second silence gets the host's answer.
+                    if not turn.reasks:
+                        turn.reasks += 1
+                        cue = True
+                        continue
+                    # Still silent. The host answers. The history keeps only the
+                    # model's own words.
+                    turn.fallback = True
+                    turn.text = self._fallback(turn.calls, "The model returned no answer.")
+                    if on_text:
+                        on_text(turn.text)
+                    return turn
                 prepared = self._record_reply(reply, turn)
                 if not prepared:
                     # No tool requests: the model's text is the answer.
-                    if reply.text and reply.text.strip():
-                        turn.text = reply.text
-                        return turn
-                    # The reply is empty. Put the fallback text into the assistant message
-                    # that _record_reply added, so the history shows what the customer saw.
-                    turn.text = self._fallback(turn.calls, "The model returned no answer.")
-                    self.messages[-1]["content"] = turn.text
-                    if on_text:
-                        on_text(turn.text)
+                    turn.text = text
                     return turn
                 dispatched = await self._run_tools(
                     prepared, advertised, turn, completed, dispatched, on_tool
@@ -137,22 +155,24 @@ class Agent:
                 "Do not claim unperformed actions or propose more tool calls this turn."
             )
             reply = await self.model.complete(wrapup, [], on_text=on_text)
-            turn.text = (
-                reply.text
-                if reply.text and reply.text.strip()
-                else self._fallback(turn.calls, "This turn stopped before the model could finish.")
+            if reply.text and reply.text.strip():
+                turn.text = reply.text
+                self.messages.append({"role": "assistant", "content": turn.text})
+                return turn
+            turn.text = self._fallback(
+                turn.calls, "This turn stopped before the model could finish."
             )
-            if turn.text != reply.text and on_text:
+            if on_text:
                 on_text(turn.text)  # the fallback text was not streamed; show it now
         except ModelError as exc:
             # A model request failed. Tell the customer which actions were already done.
             turn.error = str(exc)
             turn.text = self._fallback(turn.calls, str(exc))
-            self.messages.append({"role": "assistant", "content": turn.text})
             if on_text:
                 on_text("\n" + turn.text)
-            return turn
-        self.messages.append({"role": "assistant", "content": turn.text})
+        # The host wrote this answer. It goes to the customer, not into the history:
+        # a model copies what it finds there.
+        turn.fallback = True
         return turn
 
     def _fallback(self, calls: list[str], reason: str) -> str:

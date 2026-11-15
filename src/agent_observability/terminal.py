@@ -51,5 +51,9 @@ class Console:
             notes.append(f"normalized {turn.coercions} mistyped argument(s)")
         if turn.duplicates:
             notes.append(f"suppressed {turn.duplicates} repeated business action(s)")
+        if turn.reasks:
+            notes.append("the model said nothing; the host asked again")
+        if turn.fallback:
+            notes.append("the reply above is from the host, not from the model")
         if notes:
             print(f"note: {'; '.join(notes)}")
