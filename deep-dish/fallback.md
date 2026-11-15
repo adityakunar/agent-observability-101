@@ -6,17 +6,15 @@ error. Your customer is waiting. What do you show them, and what do you tell
 the model?
 
 We hit this with the pizza-ordering agent in [Chapter 1](../article.md), on a
-small model running on a laptop. Our answer took four rounds. Each fix solved
-the problem in front of us and made the model do something new: copy our words
-back, claim work it had not done, place an order nobody approved, and in the
-last round, slow every re-ask down. The fix that held is a message with no
-words in it.
+small model running on a laptop. Our answer took four rounds, and each fix
+made the model do something new. The fix that held is a message with no words
+in it.
 
 This page gives you:
 
 - why a small model goes silent, and how to see it in the prompt;
 - why anything your code writes into the chat comes back as the model's words;
-- why a re-ask in words is an instruction you did not mean to give;
+- why asking again in words gives an instruction you did not mean;
 - the fix that held: an empty message;
 - a way to test a fix: replay the same request ten times.
 
@@ -113,8 +111,9 @@ A small model follows the host's words literally. “Reply” means “report”
 ## Round 3: the unapproved order
 
 So we tried a cue that allows more: “Continue: call the next tool, or reply to
-the customer about the result above.” On 20 silent moments it fixed the read:
-10 of 10 resumed the adds that the customer asked for.
+the customer about the result above.” We replayed 20 silent moments. On the
+one in the middle of a task, 10 of 10 replays went on to add what the customer
+asked for.
 
 It also found a new way to fail. Right after a delivery address was saved, it
 called `confirm_order` 10 times out of 10. The customer had said “confirm it”
