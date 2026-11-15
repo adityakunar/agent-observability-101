@@ -23,6 +23,9 @@ The answer about the allergen is correct. The next sentence is false. In the
 chat that we recorded, the customer went on and approved the order, and the
 confirmed order held the pizza with celery.
 
+The shop is a demo and the menu is made up. The failure is not: a real shop
+with this agent delivers that pizza to that customer.
+
 This is not a rare accident. We typed these two messages into a new chat 20
 times: 17 replies said that the pizza was removed when it was not, and 3 chats
 made the swap. That is one model (Gemma 4 E4B, 4-bit) on one machine, and your
