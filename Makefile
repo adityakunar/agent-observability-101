@@ -87,14 +87,20 @@ chat:
 # A part that already answers is left as it is.
 up:
 	@mkdir -p $(RUN_DIR)
-	@if [ "$(PROFILE)" = local ] && ! $(PROBE) $(MODEL_URL) >/dev/null; then \
+	@if [ "$(PROFILE)" != local ]; then :; \
+	elif $(PROBE) $(MODEL_URL) >/dev/null; then \
+		echo "-> a model already answers on :$(LLM_PORT). make up uses it and make down will not stop it."; \
+	else \
 		$(MAKE) --no-print-directory check-model || exit 1; \
 		case "$(RAPID_MLX)" in sudo*) sudo -v || exit 1;; esac; \
 		echo "-> starting the local model on :$(LLM_PORT)"; \
 		nohup $(RAPID_MLX) serve $(LLM_MODEL) --port $(LLM_PORT) $(MLX_ARGS) > $(RUN_DIR)/model.log 2>&1 & \
 		echo $$! > $(RUN_DIR)/model.pid; \
 	fi
-	@if ! $(PROBE) $(DESK_URL)/desk/snapshot >/dev/null; then \
+	@if $(PROBE) $(DESK_URL)/desk/snapshot >/dev/null; then \
+		echo "-> a pizza server already answers on :$(MCP_PORT). It can run older code from another folder:"; \
+		echo "   to test this folder, stop that server and run make up again."; \
+	else \
 		echo "-> starting the pizza server on :$(MCP_PORT)"; \
 		nohup $(UV) run --locked python -m agent_observability.pizza.server > $(RUN_DIR)/server.log 2>&1 & \
 		echo $$! > $(RUN_DIR)/server.pid; \
