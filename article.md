@@ -227,7 +227,7 @@ The host keeps six rules. No wording from the model changes them.
 | It does not run the same business action two times in one turn. | A small model sometimes repeats a call, and the customer gets two pizzas. |
 | It stops at 12 model requests or 16 tool calls for each message. | A loop that makes no progress must end. |
 | It keeps its own words out of the history that the model reads. | A model copies what it finds there. A host message in the history comes back as the model's own words. |
-| It asks a silent model again one time, and refuses the order tool in that step. | A small model sometimes ends its turn with no text after a tool result. The request to speak comes from the host, not from the customer, so it must not place an order. |
+| It asks a silent model again one time, with a message that has no words. | A small model sometimes ends its turn with no text after a tool result. An empty message starts a new turn. A message with words is an instruction, and a small model follows it literally. |
 
 The chat prints a note when the host asked again or wrote the answer itself, so
 you can count how often that happens.
@@ -240,9 +240,7 @@ a summary of what was done.
 For the third rule, the host must know which tools change records. Each
 read-only tool says so with an MCP annotation:
 `@mcp.tool(annotations={"readOnlyHint": True})`. The host treats a tool without
-this hint as a business action. `confirm_order` has a second hint,
-`destructiveHint`: an order that is placed cannot be undone. The host uses it
-for the last rule in the table. A hint is a description, not a lock: the code
+this hint as a business action. The hint is a description, not a lock: the code
 and the tests must keep it true.
 
 ### The tools own the facts and the rules
