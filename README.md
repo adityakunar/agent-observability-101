@@ -55,8 +55,17 @@ as a separate tool:
 uv tool install rapid-mlx==1.0.1
 ```
 
-Then start the three parts of the chapter. Open three terminals in the repository
-folder and type one command in each:
+Then start the chapter. `make up` starts the model and the server in the
+background and waits until both answer, so the chat cannot start too early:
+
+```bash
+make up        # start both and wait; the first start downloads the model
+make status    # the model that the chat will use, and what answers on each port
+make chat
+make down      # stop what make up started
+```
+
+To watch each part work, give each one a terminal instead:
 
 ```bash
 make model     # terminal 1: the local model, port 9000
@@ -64,19 +73,11 @@ make server    # terminal 2: the MCP tools and the delivery desk, port 8000
 make chat      # terminal 3: the chat
 ```
 
-Each part stays in its terminal and shows its own output. Wait until the model
-server in terminal 1 has started before you send the first chat message. If the
-chat reports that it cannot reach the model, wait and try again. Press Ctrl+C in a
-terminal to stop that part.
-
-To use one terminal, let `make` start the model and the server in the background:
-
-```bash
-make up        # start both and wait until they answer
-make status    # the model that the chat will use, and what answers on each port
-make chat
-make down      # stop what make up started
-```
+Each part stays in its terminal and shows its own output. Here nothing waits for
+you: start `make chat` only when the model in terminal 1 and the server in
+terminal 2 have started. On the first run that takes a while, and a chat that
+starts too early reports that it cannot reach them. Press Ctrl+C in a terminal to
+stop that part.
 
 Versions are pinned: **Prefab (`prefab-ui`) 0.21.1**, **FastMCP 4.1.4**,
 **rapid-mlx 1.0.1**, **uv 0.13.6** and **Python 3.14.4** (selected by
