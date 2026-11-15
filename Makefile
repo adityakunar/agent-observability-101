@@ -116,13 +116,16 @@ status:
 		else echo "  :$(MCP_PORT)  pizza server down"; fi
 
 # Stops only what make up started. A model that another terminal started stays.
+# When the model runs as $(MODEL_USER), stopping it asks for your password.
 down:
-	@for file in $(RUN_DIR)/model.pid $(RUN_DIR)/server.pid; do \
+	@started=; [ -s $(RUN_DIR)/model.pid ] && started=yes; \
+	for file in $(RUN_DIR)/model.pid $(RUN_DIR)/server.pid; do \
 		[ -s "$$file" ] && kill "$$(cat "$$file")" 2>/dev/null; : > "$$file"; \
-	done; true
-	@sleep 1; if $(PROBE) $(MODEL_URL) >/dev/null; then \
-		echo "A model still answers on :$(LLM_PORT). To stop it, run: make model-stop"; \
-	else echo "stopped."; fi
+	done; sleep 1; \
+	if ! $(PROBE) $(MODEL_URL) >/dev/null; then echo "stopped."; \
+	elif [ -n "$$started" ]; then \
+		$(MAKE) --no-print-directory model-stop; \
+	else echo "A model that make up did not start still answers on :$(LLM_PORT). To stop it, run: make model-stop"; fi
 
 verify: check audit
 
