@@ -114,8 +114,8 @@ compatible model.
 
 Open the delivery desk at <http://localhost:8000>. Play the customer in
 the terminal chat and follow their order in your delivery desk. Chat replies
-stream as they arrive. Use `/quit` to leave the chat. Press Ctrl+C in the other
-two terminals to stop the server and the model.
+stream as they arrive. Use `/quit` to leave the chat. Stop the rest with
+`make down`, or with Ctrl+C in each terminal if you started the parts yourself.
 Once installed, everything runs offline: inference, the tools and the desk,
 which is a self-contained page served by the MCP server.
 
@@ -259,6 +259,20 @@ Then ask a question that needs a source:
 **FAQ Sources** shows which document the assistant read. Select **Open source**
 and compare the document with the answer. The FAQ documents are four Markdown
 files in [knowledge_base/](knowledge_base/).
+
+### Then see a false claim
+
+Leave the chat with `/quit`, start a new one with `make chat`, and type:
+
+> Hi, I'll take a personal BBQ Chicken with thin crust
+
+> I'm allergic to celery. Is there celery in the BBQ sauce? If so, swap it for a personal Margherita, thin crust.
+
+Read the reply, then look at the `tool>` lines and at the cart on the delivery
+desk. In 9 of our 10 tries the assistant said that it removed the BBQ Chicken,
+the only tool that ran was `faq_read`, and the cart did not change. If your
+chat makes the swap, start a new chat and try again. This is the fault that the
+[article](article.md) starts with.
 
 Nothing is charged or delivered: this is a demo. The records are in memory and
 are gone when the server stops. A real model can take a different path from the
