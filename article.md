@@ -23,8 +23,8 @@ The answer about the allergen is correct. The next sentence is false. In the
 chat that we recorded, the customer went on and approved the order, and the
 confirmed order held the pizza with celery.
 
-This is not a rare accident. We typed these two messages into a new chat 10
-times: 9 replies said that the pizza was removed when it was not, and 1 chat
+This is not a rare accident. We typed these two messages into a new chat 20
+times: 17 replies said that the pizza was removed when it was not, and 3 chats
 made the swap. That is one model (Gemma 4 E4B, 4-bit) on one machine, and your
 count will differ. [Try it](README.md#then-see-a-false-claim).
 
@@ -194,10 +194,12 @@ delivery desk after each message.
 2. *Remove the garlic bread.* The line goes, and the discount goes too: a deal
    stays only while the cart has the items that the deal needs.
 3. *Add the garlic bread again and apply the deal.*
-4. *Confirm my order.* There is no address, so `confirm_order` refuses and the
-   cart does not change. The model reads the refusal and asks for the address.
+4. *Confirm my order.* There is no address, so no order is placed and the cart
+   does not change. The model asks for the address. If it calls `confirm_order`
+   first, the tool refuses and the model reads the refusal.
 5. *Damrak 1, 1012 LG Amsterdam.* Then approve the order. Delivery adds €1.99,
-   and the total is €20.96.
+   and the total is €20.96. Sometimes the assistant places the order before you
+   approve: see [What is still broken](#what-is-still-broken).
 
 ![A confirmed order on the delivery desk, with the address, the deal saving and the total.](resources/screenshots/confirmed-order.jpg)
 
@@ -371,7 +373,7 @@ We left three faults in the app. Each one is the subject of a later chapter.
 
 ## What Chapter 1 does not claim
 
-- **No figure for model reliability.** The count of 9 in 10 above is one small
+- **No figure for model reliability.** The count of 17 in 20 above is one small
   sample of one moment. The Sushi Pizza test shows what the host permits. Neither
   measures how often a real model says something false.
 - **No trace.** The FAQ record is for the full server and holds only the recent

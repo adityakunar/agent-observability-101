@@ -218,8 +218,9 @@ the items that the deal needs.
 
 > Confirm my order.
 
-There is no address, so the order tool refuses and the cart does not change. The
-refusal goes back to the model as the result of the tool:
+There is no address, so no order is placed and the cart does not change. Often
+the model asks for the address at once. If it calls the order tool first, the
+tool refuses, and the refusal goes back to the model as the result of the tool:
 
 ```mermaid
 sequenceDiagram
@@ -250,7 +251,9 @@ sequenceDiagram
 The rule is in the tool, so no wording from the model can place the order. Give
 an address, for example `Damrak 1, 1012 LG Amsterdam`. The tool saves your words
 as they are; it does not check that the address exists. Approve the order. The
-confirmed order appears in **Orders**, and the total is €20.96.
+confirmed order appears in **Orders**, and the total is €20.96. If the assistant
+places the order before you approve, you have found a fault that we left in:
+see [What is still broken](article.md#what-is-still-broken).
 
 Then ask a question that needs a source:
 
@@ -269,7 +272,7 @@ Leave the chat with `/quit`, start a new one with `make chat`, and type:
 > I'm allergic to celery. Is there celery in the BBQ sauce? If so, swap it for a personal Margherita, thin crust.
 
 Read the reply, then look at the `tool>` lines and at the cart on the delivery
-desk. In 9 of our 10 tries the assistant said that it removed the BBQ Chicken,
+desk. In 17 of our 20 tries the assistant said that it removed the BBQ Chicken,
 the only tool that ran was `faq_read`, and the cart did not change. If your
 chat makes the swap, start a new chat and try again. This is the fault that the
 [article](article.md) starts with.

@@ -113,9 +113,11 @@ up:
 		nohup $(UV) run --locked python -m agent_observability.pizza.server > $(RUN_DIR)/server.log 2>&1 & \
 		echo $$! > $(RUN_DIR)/server.pid; \
 	fi
-	@if [ "$(PROFILE)" = local ]; then \
+	@if [ "$(PROFILE)" != local ]; then \
+		echo "-> waiting for the pizza server. The $(PROFILE) model is hosted: nothing to start or download."; \
+	elif [ -s $(RUN_DIR)/model.pid ]; then \
 		echo "-> waiting. The first start downloads the model (about 5 GB). To follow it: tail -f $(RUN_DIR)/model.log"; \
-	else echo "-> waiting for the pizza server. The $(PROFILE) model is hosted: nothing to start or download."; fi; \
+	else echo "-> waiting for the pizza server."; fi; \
 	ready() { { [ "$(PROFILE)" != local ] || $(PROBE) $(MODEL_URL) >/dev/null; } \
 		&& $(PROBE) $(DESK_URL)/desk/snapshot >/dev/null; }; \
 	for i in $$(seq 1 $(STARTUP_TIMEOUT)); do \
