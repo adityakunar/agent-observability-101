@@ -301,10 +301,6 @@ async def test_failed_model_request_stays_out_of_the_history():
     assert [m["role"] for m in agent.messages] == ["system", "user"]
 
 
-def names(tools):
-    return {tool["function"]["name"] for tool in tools}
-
-
 async def test_silence_after_a_read_gets_the_cue_to_continue():
     model = ScriptedModel(
         [
@@ -319,7 +315,7 @@ async def test_silence_after_a_read_gets_the_cue_to_continue():
         await agent.prepare()
         turn = await agent.send("One coke.")
     assert turn.calls == ["browse_menu", "add_extra"] and turn.reasks == 1
-    reask, tools = model.requests[2]
+    reask, _ = model.requests[2]
     assert reask[-1] == CONTINUE_CUE and REPLY_CUE not in reask
     assert CONTINUE_CUE not in agent.messages
 
@@ -331,7 +327,7 @@ async def test_a_reask_cannot_place_the_order_but_the_customer_can():
             Reply(tool_calls=[ToolCall("1", "add_extra", {"item_id": "coke"})]),
             Reply(tool_calls=[ToolCall("2", "set_delivery_address", address)]),
             Reply(None),
-            # The model asks for a tool that the re-ask request did not offer.
+            # The model asks to place the order in the step that the host's cue started.
             Reply(tool_calls=[ToolCall("3", "confirm_order", {})]),
             Reply("Shall I place the order?"),
             Reply(tool_calls=[ToolCall("4", "confirm_order", {})]),
@@ -342,9 +338,9 @@ async def test_a_reask_cannot_place_the_order_but_the_customer_can():
         agent = Agent(client, model, PROMPT)
         await agent.prepare()
         turn = await agent.send("One coke to Lantern Street 12, Ghent.")
-        assert "confirm_order" not in names(model.requests[3][1])
+        # The tool list stays the same in each request; the host refuses the call.
+        assert len({json.dumps(tools) for _, tools in model.requests}) == 1
         assert turn.calls[-1] == "confirm_order (rejected)" and not state.orders
-        # The customer's own message gets all the tools again.
+        # After the customer's own message, the host runs it.
         turn = await agent.send("Yes, place it.")
-    assert "confirm_order" in names(model.requests[5][1])
     assert turn.calls == ["confirm_order"] and len(state.orders) == 1

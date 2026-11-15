@@ -123,21 +123,19 @@ class Agent:
         after_read = False  # the last tool request of this turn was a read
         try:
             for _ in range(self.max_tool_iterations):
-                request, tools = self.messages, self.tools
+                request = self.messages
+                advertised = {tool["function"]["name"] for tool in self.tools}
                 if cue:
                     # After a silent reply, the request carries a cue. The cue goes on a
                     # copy, so it does not stay in the conversation. The cue is the host's
-                    # words, not the customer's, so this request does not offer the tools
-                    # that cannot be undone. The customer's next message can use them.
+                    # words, not the customer's, so the host refuses a tool that cannot be
+                    # undone in this step. The customer's next message can use it. The
+                    # model still gets the full tool list: a changed list at the start of
+                    # the request makes the server read the whole conversation again.
                     request = [*self.messages, cue]
-                    tools = [
-                        tool
-                        for tool in self.tools
-                        if tool["function"]["name"] not in self.destructive_tools
-                    ]
+                    advertised -= self.destructive_tools
                     cue = None
-                advertised = {tool["function"]["name"] for tool in tools}
-                reply = await self.model.complete(request, tools, on_text=on_text)
+                reply = await self.model.complete(request, self.tools, on_text=on_text)
                 text = reply.text or ""
                 if not reply.tool_calls and not text.strip():
                     # The reply is silent: no tool request and no text. Some models end
