@@ -9,7 +9,7 @@ description = "Agent observability 101: a pizza-ordering agent instrumented one 
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.11"
-authors = [{ name = "Aditya Kunar", email = "aditya.kunar@gmail.com" }]
+authors = [{ name = "Aditya Kunar" }]
 dependencies = [
     "fastmcp[apps]==4.1.4",
     "prefab-ui==0.21.1",
