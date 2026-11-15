@@ -7,8 +7,8 @@ import pytest
 from fastmcp import Client
 
 from agent_observability.chat import PROMPT
-from agent_observability.client import Agent
-from agent_observability.model import Reply, ToolCall
+from agent_observability.client import CUE, Agent
+from agent_observability.model import ModelError, Reply, ToolCall
 from agent_observability.pizza import server, state
 
 
@@ -226,8 +226,8 @@ async def test_empty_wrapup_has_visible_fallback_and_keeps_progress():
         agent = Agent(client, model, PROMPT, max_tool_iterations=1)
         await agent.prepare()
         turn = await agent.send("One coke.", on_text=fragments.append)
-    assert turn.exhausted and "Completed actions: add_extra" in turn.text
-    assert fragments == [turn.text]
+    assert turn.exhausted and turn.fallback and "Completed actions: add_extra" in turn.text
+    assert fragments == [turn.text] and agent.messages[-1]["role"] == "tool"
     assert len(state.sessions[agent.session_id].items) == 1
 
 
@@ -247,3 +247,55 @@ async def test_invalid_integer_text_is_rejected_without_crashing_chat(quantity):
         turn = await agent.send("A coke")
     assert turn.calls == ["add_extra (rejected)"] and turn.error is None
     assert not state.sessions and turn.text == "How many drinks would you like?"
+
+
+async def test_silent_reply_is_asked_again_with_a_cue_that_stays_out_of_the_history():
+    model = ScriptedModel(
+        [
+            Reply(tool_calls=[ToolCall("1", "add_extra", {"item_id": "coke"})]),
+            Reply(None),  # the silent turn: no tool request and no text
+            Reply("I added one Coke."),
+        ]
+    )
+    async with Client(server.mcp) as client:
+        agent = Agent(client, model, PROMPT)
+        await agent.prepare()
+        turn = await agent.send("One coke.")
+    assert turn.text == "I added one Coke." and turn.reasks == 1 and not turn.fallback
+    # Only the second request, the one after the silence, carries the cue.
+    assert [CUE in messages for messages, _ in model.requests] == [False, False, True]
+    assert CUE not in agent.messages and agent.messages[-1]["content"] == turn.text
+
+
+async def test_fallback_goes_to_the_customer_and_not_into_the_history():
+    model = ScriptedModel(
+        [
+            Reply(tool_calls=[ToolCall("1", "add_extra", {"item_id": "coke"})]),
+            Reply(None),
+            Reply(""),  # silent again after the cue
+            Reply("You have one Coke."),
+        ]
+    )
+    fragments = []
+    async with Client(server.mcp) as client:
+        agent = Agent(client, model, PROMPT)
+        await agent.prepare()
+        turn = await agent.send("One coke.", on_text=fragments.append)
+        assert turn.fallback and "Completed actions: add_extra" in turn.text
+        assert fragments == [turn.text]
+        # The model's next request must not hold the host's words as its own.
+        await agent.send("What is in my cart?")
+    assert not any("returned no answer" in str(m["content"]) for m in model.requests[-1][0])
+
+
+async def test_failed_model_request_stays_out_of_the_history():
+    class FailingModel:
+        async def complete(self, messages, tools, *, on_text=None):
+            raise ModelError("The model server did not answer.")
+
+    async with Client(server.mcp) as client:
+        agent = Agent(client, FailingModel(), PROMPT)
+        await agent.prepare()
+        turn = await agent.send("One coke.")
+    assert turn.fallback and turn.error and "did not answer" in turn.text
+    assert [m["role"] for m in agent.messages] == ["system", "user"]
