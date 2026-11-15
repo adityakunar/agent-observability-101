@@ -7,7 +7,7 @@ import pytest
 from fastmcp import Client
 
 from agent_observability.chat import PROMPT
-from agent_observability.client import CONTINUE_CUE, REPLY_CUE, Agent
+from agent_observability.client import CUE, Agent
 from agent_observability.model import ModelError, Reply, ToolCall
 from agent_observability.pizza import server, state
 
@@ -263,8 +263,8 @@ async def test_silent_reply_is_asked_again_with_a_cue_that_stays_out_of_the_hist
         turn = await agent.send("One coke.")
     assert turn.text == "I added one Coke." and turn.reasks == 1 and not turn.fallback
     # Only the second request, the one after the silence, carries the cue.
-    assert [REPLY_CUE in messages for messages, _ in model.requests] == [False, False, True]
-    assert REPLY_CUE not in agent.messages and agent.messages[-1]["content"] == turn.text
+    assert [CUE in messages for messages, _ in model.requests] == [False, False, True]
+    assert CUE not in agent.messages and agent.messages[-1]["content"] == turn.text
 
 
 async def test_fallback_goes_to_the_customer_and_not_into_the_history():
@@ -301,7 +301,7 @@ async def test_failed_model_request_stays_out_of_the_history():
     assert [m["role"] for m in agent.messages] == ["system", "user"]
 
 
-async def test_silence_after_a_read_gets_the_cue_to_continue():
+async def test_silence_in_the_middle_of_a_task_can_continue_with_a_tool():
     model = ScriptedModel(
         [
             Reply(tool_calls=[ToolCall("1", "browse_menu", {"category": "drink"})]),
@@ -316,31 +316,4 @@ async def test_silence_after_a_read_gets_the_cue_to_continue():
         turn = await agent.send("One coke.")
     assert turn.calls == ["browse_menu", "add_extra"] and turn.reasks == 1
     reask, _ = model.requests[2]
-    assert reask[-1] == CONTINUE_CUE and REPLY_CUE not in reask
-    assert CONTINUE_CUE not in agent.messages
-
-
-async def test_a_reask_cannot_place_the_order_but_the_customer_can():
-    address = {"address": "Lantern Street 12, Ghent"}
-    model = ScriptedModel(
-        [
-            Reply(tool_calls=[ToolCall("1", "add_extra", {"item_id": "coke"})]),
-            Reply(tool_calls=[ToolCall("2", "set_delivery_address", address)]),
-            Reply(None),
-            # The model asks to place the order in the step that the host's cue started.
-            Reply(tool_calls=[ToolCall("3", "confirm_order", {})]),
-            Reply("Shall I place the order?"),
-            Reply(tool_calls=[ToolCall("4", "confirm_order", {})]),
-            Reply("Your order is placed."),
-        ]
-    )
-    async with Client(server.mcp) as client:
-        agent = Agent(client, model, PROMPT)
-        await agent.prepare()
-        turn = await agent.send("One coke to Lantern Street 12, Ghent.")
-        # The tool list stays the same in each request; the host refuses the call.
-        assert len({json.dumps(tools) for _, tools in model.requests}) == 1
-        assert turn.calls[-1] == "confirm_order (rejected)" and not state.orders
-        # After the customer's own message, the host runs it.
-        turn = await agent.send("Yes, place it.")
-    assert turn.calls == ["confirm_order"] and len(state.orders) == 1
+    assert reask[-1] == CUE and CUE not in agent.messages

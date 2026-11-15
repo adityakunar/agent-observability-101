@@ -22,15 +22,11 @@ from fastmcp.exceptions import ToolError
 
 from agent_observability.model import Model, ModelError, Reply, TextCallback, ToolCall
 
-# The cues that the host adds when it asks a silent model again. Which one depends on
-# the last tool. After a business action the work is done, and the model must report it.
-# After a read the work is not done: a model that is told to reply then describes
-# actions that it did not take.
-REPLY_CUE = {"role": "user", "content": "Reply to the customer about the result above."}
-CONTINUE_CUE = {
-    "role": "user",
-    "content": "Continue: call the next tool, or reply to the customer about the result above.",
-}
+# What the host adds when it asks a silent model again: a message with no words. It
+# closes the turn that the model left open and starts a new one. Words here are an
+# instruction, and a small model follows an instruction literally: "reply" made it
+# describe actions that it did not take, and "continue" made it place an order.
+CUE = {"role": "user", "content": ""}
 
 
 @dataclass
@@ -73,14 +69,12 @@ class Agent:
         self.available: dict[str, dict[str, Any]] = {}  # the same catalog, by tool name
         self.session_tools: set[str] = set()  # tools that need the session ID
         self.mutation_tools: set[str] = set()  # tools that can change business records
-        self.destructive_tools: set[str] = set()  # tools whose effect cannot be undone
 
     async def prepare(self) -> None:
         """Read the server's tool list and build the catalog that the model sees."""
         self.available.clear()
         self.session_tools.clear()
         self.mutation_tools.clear()
-        self.destructive_tools.clear()
         for tool in await self.client.list_tools():
             if self.allowed_tools is not None and tool.name not in self.allowed_tools:
                 continue  # the caller limited this agent to a subset of the tools
@@ -94,9 +88,6 @@ class Agent:
             # A tool without the read-only hint can change business records.
             if not (tool.annotations and tool.annotations.read_only_hint):
                 self.mutation_tools.add(tool.name)
-            # The server marks a tool whose effect cannot be undone, such as placing the order.
-            if tool.annotations and tool.annotations.destructive_hint:
-                self.destructive_tools.add(tool.name)
             self.available[tool.name] = {
                 "type": "function",
                 "function": {
@@ -119,22 +110,14 @@ class Agent:
         turn = Turn("")
         completed: dict[str, str] = {}  # business actions done in this turn, with their results
         dispatched = 0  # tool calls made in this turn
-        cue: dict[str, str] | None = None  # the cue to add to the next model request
-        after_read = False  # the last tool request of this turn was a read
+        cue = False  # add the cue to the next model request
         try:
             for _ in range(self.max_tool_iterations):
-                request = self.messages
                 advertised = {tool["function"]["name"] for tool in self.tools}
-                if cue:
-                    # After a silent reply, the request carries a cue. The cue goes on a
-                    # copy, so it does not stay in the conversation. The cue is the host's
-                    # words, not the customer's, so the host refuses a tool that cannot be
-                    # undone in this step. The customer's next message can use it. The
-                    # model still gets the full tool list: a changed list at the start of
-                    # the request makes the server read the whole conversation again.
-                    request = [*self.messages, cue]
-                    advertised -= self.destructive_tools
-                    cue = None
+                # After a silent reply, the next request carries the cue. The cue goes on
+                # a copy, so it does not stay in the conversation.
+                request = [*self.messages, CUE] if cue else self.messages
+                cue = False
                 reply = await self.model.complete(request, self.tools, on_text=on_text)
                 text = reply.text or ""
                 if not reply.tool_calls and not text.strip():
@@ -143,7 +126,7 @@ class Agent:
                     # each customer message; a second silence gets the host's answer.
                     if not turn.reasks:
                         turn.reasks += 1
-                        cue = CONTINUE_CUE if after_read else REPLY_CUE
+                        cue = True
                         continue
                     # Still silent. The host answers. The history keeps only the
                     # model's own words.
@@ -160,7 +143,6 @@ class Agent:
                 dispatched = await self._run_tools(
                     prepared, advertised, turn, completed, dispatched, on_tool
                 )
-                after_read = prepared[-1][0].name not in self.mutation_tools
                 # Stop when the tool-call budget is used, or when the model repeated a
                 # business action. The wrap-up below gives the answer.
                 if turn.exhausted or turn.duplicates:
