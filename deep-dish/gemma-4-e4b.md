@@ -1,9 +1,33 @@
-# Deep-dish: Gemma 4 E4B, the 4B model that weighs 7.5B
+# Deep-dish: why a "4B" model needs 5 GB
 
-Chapter 1 serves Gemma 4 E4B at 4 bits. A rule of thumb says that a 4B model
-at 4 bits needs 2 GB. Our model server held 5.15 GB before the first prompt.
-Nothing leaked. The name counts what each token computes. The memory counts
-what the model keeps.
+You want an agent that runs on your own laptop, so you pick a small model.
+Gemma 4 E4B: 4B parameters, 4-bit weights. Four billion half-bytes is 2 GB,
+so it should fit next to your editor and your browser with room to spare.
+
+That is what we expected when we built the pizza-ordering agent in
+[Chapter 1](../article.md). The model server held 5.15 GB before it read a
+single word. And the longer the prompt got, the slower each reply came out.
+
+Two surprises, and both matter for an agent. Memory decides whether the model
+fits beside everything else you run. Speed decides how long your customer
+waits, and an agent's prompt only grows: every turn sends the whole chat, the
+tool definitions and the tool results again.
+
+So we asked two questions. Where do the 5 GB go? And what sets the speed? This
+page gives you:
+
+- why the name gives the wrong size, and where to read the right one;
+- one flag that gave back 0.95 GB;
+- a way to predict decode speed from three timed prompts;
+- one setting that helped and that we cannot fully explain.
+
+**The setup.** One Mac: an M5 Pro with 24 GB, rapid-mlx 1.0.1, MLX 0.32.4.
+The checkpoint is `mlx-community/gemma-4-e4b-it-4bit`. Each test sends a
+prompt of 10 to 28K tokens, at temperature 0, with the prefix cache off so
+the server reads every prompt from the start. Memory is `metal` from
+`GET /v1/status`, the same source as the MLX peak in Chapter 1's
+[Measure](../article.md#3-measure-one-line-for-each-model-request) line.
+One run for each number.
 
 ## Where the 7.5B comes from
 
@@ -24,15 +48,10 @@ row from each table. But the next token can need any row, so every row stays
 in memory. Google designed the PLE table so that a phone can keep it in flash.
 On a Mac it sits in unified memory with everything else.
 
-So two rules, and the rest of this page is their evidence:
+That gives the two rules behind every number below:
 
 - **Memory follows what the model stores.**
 - **Speed follows what each token reads.**
-
-We measured on one Mac: an M5 Pro with 24 GB, rapid-mlx 1.0.1, MLX 0.32.4,
-temperature 0, prefix cache off, one run for each row. Memory is `metal` from
-`GET /v1/status`, the same source as the MLX peak in Chapter 1's
-[Measure](../article.md#3-measure-one-line-for-each-model-request) line.
 
 ## Memory: the lane, then the cache
 
