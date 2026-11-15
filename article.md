@@ -367,10 +367,12 @@ We left three faults in the app. Each one is the subject of a later chapter.
 
 - **A claim is not checked.** The host shows the text of the model as it is. The
   celery swap at the top of this chapter is the result.
-- **Approval is not enforced.** In recorded chats the model saved the address and
-  placed the order in one turn, because the customer had said “go ahead” earlier.
-  The customer did not see the delivery fee first. The rule is one sentence in
-  the prompt.
+- **An order can be placed without your yes.** The prompt tells the model to show
+  the total and ask before it confirms. No code checks that. In our chats the
+  model sometimes saved the address and confirmed the order in one turn, so the
+  customer never saw the delivery fee. We left it in on purpose: a rule that
+  lives only in the prompt is a request, and this is what a request looks like
+  when it is ignored.
 - **The address is not validated.** The tool saved made-up addresses, a moon base
   among them.
 
