@@ -7,7 +7,7 @@ from prefab_ui.rx import RESULT
 
 from agent_observability.pizza.state import DELIVERY_FEE, DELIVERY_MINUTES
 
-from .assets import stylesheet
+from .assets import illustration, stylesheet
 from .carts_tab import carts_tab
 from .hero import hero
 from .metrics import metrics
@@ -38,7 +38,7 @@ def pizza_operator() -> PrefabApp:
         on_mount=SetInterval(duration=3000, on_tick=refresh),
     ) as ui:
         with Column(gap=6, css_class="delivery-desk"):
-            hero()
+            hero(illustration())
             metrics()
             toolbar(refresh)
             with Tabs(css_class="comic-tabs"):

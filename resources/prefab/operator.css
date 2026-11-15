@@ -8,10 +8,12 @@
   min-height: 100vh;
 }
 .lantern .delivery-desk { max-width: 1120px; margin: auto; padding: 32px; }
+.lantern .comic-hero { align-items: center; padding-bottom: 8px; }
 .lantern .eyebrow { font-size: 13px; font-weight: 800; letter-spacing: .16em; }
 .lantern .hero-title { font-family: Georgia, serif; font-size: clamp(36px, 5vw, 60px); line-height: 1.03; letter-spacing: -.04em; max-width: 450px; }
 .lantern .hero-description { font-size: 17px; line-height: 1.6; max-width: 340px; }
 .lantern .speech-bubble { position: relative; width: fit-content; padding: 12px 18px; background: white; border: 2px solid #20313c; border-radius: 18px; font-weight: 700; transform: rotate(-2deg); box-shadow: 3px 3px 0 #20313c; }
+.lantern .comic-illustration { display: block; border: 2px solid #20313c; border-radius: 6px; box-shadow: 6px 6px 0 #20313c; }
 .lantern .comic-panel { border: 2px solid #20313c; box-shadow: 4px 4px 0 #20313c; border-radius: 6px; color: #20313c; background: #fffdf4; transition: transform .15s ease, box-shadow .15s ease; }
 .lantern .comic-panel:hover { transform: translate(-1px, -1px); box-shadow: 5px 5px 0 #20313c; }
 .lantern .metric-panel { padding: 20px 24px; }

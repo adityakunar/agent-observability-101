@@ -2,6 +2,8 @@
 
 The assistant says the order is placed. Did it happen?
 
+![A comic strip: a cook takes a pizza from the oven, hands the box to a courier, and the courier cycles along an Amsterdam canal.](resources/prefab/lantern-strip.jpg)
+
 A fluent reply does not prove an action. This chapter builds a small local AI
 assistant and shows you three things apart: what the assistant **said**, which
 tools the host **ran**, and which business records **changed**.
@@ -225,12 +227,24 @@ sequenceDiagram
     participant M as Model
     participant H as Host
     participant T as confirm_order
+    rect rgba(70, 150, 200, 0.18)
+    Note over C,M: said
     C->>M: Confirm my order
+    end
+    rect rgba(255, 190, 40, 0.22)
+    Note over M,T: ran
     M->>H: call confirm_order
     H->>T: confirm_order(session)
-    T-->>H: refused: no delivery address (cart unchanged)
+    T-->>H: refused: no delivery address
     H-->>M: Rejected: a delivery address is required
+    end
+    rect rgba(220, 80, 60, 0.18)
+    Note over T: changed: nothing
+    end
+    rect rgba(70, 150, 200, 0.18)
+    Note over C,M: said
     M->>C: What's your delivery address?
+    end
 ```
 
 The rule is in the tool, so no wording from the model can place the order. Give
