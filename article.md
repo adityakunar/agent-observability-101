@@ -236,6 +236,8 @@ The host keeps six rules. No wording from the model changes them.
 
 The chat prints a note when the host asked again or wrote the answer itself, so
 you can count how often that happens.
+The last two rules took four rounds to find, and each fix made a new
+behaviour: read [the fallback deep-dish](deep-dish/fallback.md).
 
 When a rule stops a call, the model gets a tool result that starts with
 `Rejected:`. The model can read it and correct itself. When a budget stops the
