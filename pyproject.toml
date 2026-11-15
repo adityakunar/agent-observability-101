@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling==1.32.4"]
+requires = ["hatchling==1.33.0"]
 build-backend = "hatchling.build"
 
 [project]
@@ -11,12 +11,12 @@ license = "MIT"
 requires-python = ">=3.11"
 authors = [{ name = "Aditya Kunar" }]
 dependencies = [
-    "fastmcp[apps]==4.1.4",
+    "fastmcp[apps]==4.1.6",
     "prefab-ui==0.21.1",
-    "openai==3.39.0",
+    "openai==3.46.0",
     "httpx2==2.16.0",
-    "pydantic==2.14.1",
-    "pydantic-settings==2.16.1",
+    "pydantic==2.14.3",
+    "pydantic-settings==2.16.2",
     # Retain the reviewed security versions when installing without uv.lock, too.
     "pyjwt[crypto]==2.15.1",
     "pyyaml==6.0.3",
@@ -50,8 +50,8 @@ warn_return_any = true
 
 [dependency-groups]
 dev = [
-    "mypy==2.4.0",
-    "pytest==9.1.1",
-    "pytest-asyncio==1.4.1",
-    "ruff==0.17.3",
+    "mypy==2.4.1",
+    "pytest==9.2.0",
+    "pytest-asyncio==1.4.1.post1",
+    "ruff==0.17.4",
 ]
