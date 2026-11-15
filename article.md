@@ -26,10 +26,10 @@ confirmed order held the pizza with celery.
 The shop is a demo and the menu is made up. The failure is not: a real shop
 with this agent delivers that pizza to that customer.
 
-This is not a rare accident. We typed these two messages into a new chat 20
-times: 17 replies said that the pizza was removed when it was not, and 3 chats
-made the swap. That is one model (Gemma 4 E4B, 4-bit) on one machine, and your
-count will differ. [Try it](README.md#then-see-a-false-claim).
+This is not a rare accident. We typed these two messages into a new chat many
+times. Most replies said that the pizza was removed when it was not, and some
+chats made the swap. We give no number: it moved between our own runs, and
+yours will differ. [Try it](README.md#then-see-a-false-claim).
 
 You can make the same failure without a model.
 [tests/test_sushi_pizza.py](tests/test_sushi_pizza.py) sends a scripted reply
@@ -376,9 +376,9 @@ We left three faults in the app. Each one is the subject of a later chapter.
 
 ## What Chapter 1 does not claim
 
-- **No figure for model reliability.** The count of 17 in 20 above is one small
-  sample of one moment. The Sushi Pizza test shows what the host permits. Neither
-  measures how often a real model says something false.
+- **No figure for model reliability.** The opening shows that the false claim
+  happens, and the Sushi Pizza test shows what the host permits. Neither measures
+  how often a real model says something false.
 - **No trace.** The FAQ record is for the full server and holds only the recent
   lookups. It cannot connect a document to one answer.
 - **No benchmark.** The `llm>` line describes one request under one set of

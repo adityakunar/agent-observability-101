@@ -272,7 +272,7 @@ Leave the chat with `/quit`, start a new one with `make chat`, and type:
 > I'm allergic to celery. Is there celery in the BBQ sauce? If so, swap it for a personal Margherita, thin crust.
 
 Read the reply, then look at the `tool>` lines and at the cart on the delivery
-desk. In 17 of our 20 tries the assistant said that it removed the BBQ Chicken,
+desk. In most of our tries the assistant said that it removed the BBQ Chicken,
 the only tool that ran was `faq_read`, and the cart did not change. If your
 chat makes the swap, start a new chat and try again. This is the fault that the
 [article](article.md) starts with.
