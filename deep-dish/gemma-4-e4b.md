@@ -86,7 +86,9 @@ make model MLX_ARGS="--text-only"
 | `--text-only` | 4.20 GB | 6.28 GB |
 
 That is 0.95 GB back. What is left, 4.20 GB, is the text weights and almost
-nothing else. You lose image and audio input. The speed barely moves.
+nothing else. You lose image and audio input. The speed barely moves: at 28K
+tokens, decode ran at 33.0 against 34.1 tokens per second, and the first token
+came at 14.6 against 13.8 s, one run each.
 
 **The cache.** A general KV calculator counts every layer the same way and
 gives 84 KiB per token for this model. To see the real size, we read MLX's
@@ -155,9 +157,9 @@ reads.
 Reading a long prompt needs more memory than the KV cache it leaves behind.
 On the text lane at 28K tokens, the peak rose 2.08 GB above the memory at
 rest, and the KV cache is about 0.48 GB of that. The rest is working memory
-for the prompt chunks. rapid-mlx uses chunks of 2,048 tokens on the text lane
-(8,192 on the multimodal lane, says its log) unless you set
-`--prefill-step-size`. We tried four sizes, with the prefix cache off:
+for the prompt chunks. rapid-mlx uses chunks of 2,048 tokens unless you set
+`--prefill-step-size`. We tried four sizes on the text lane, with the prefix
+cache off:
 
 | Chunk size | Peak above rest, 28K | of which KV cache (predicted) | First token, 28K |
 |---|---|---|---|
@@ -178,8 +180,8 @@ The working memory has two parts:
   was 0.58 to 0.61 GB at 7K, 14K and 28K. We have not found what holds it.
 
 So 512 is the sweet spot here: 0.56 GB less than the default, for about the
-same first-token time (0.3 s sooner here, 0.7 s later in a run on the
-multimodal lane). Smaller chunks start to cost time, and bigger ones cost both
+same first-token time (0.3 s sooner here, 0.7 s later in an earlier run on
+the multimodal lane). Smaller chunks start to cost time, and bigger ones cost both
 memory and time.
 
 ## Prefix cache: the agent's best friend
