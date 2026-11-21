@@ -216,8 +216,9 @@ From turn 2, the server reads only the ~200 new tokens. The cost is memory:
 the server held 0.3 GB more after each turn, because it keeps two saved
 copies of the KV cache per request, about 150 MB each at 7K tokens. It caps
 them at 4 GB here. It also writes them to disk when it stops, 1.1 GB after
-this chat, and loads them at the next start. `--disable-disk-caches` turns
-that off.
+this chat, and loads them at the next start. Those files are your customers'
+chats in another form, so on a shared or real machine, add
+`--disable-disk-caches`.
 
 ## Take these home
 
