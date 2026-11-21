@@ -118,7 +118,9 @@ cache in 8 bits instead of 16, so it halves it. But every decode step must
 unpack it again, so you pay in speed. That trade pays when the cache is big.
 Here it is about 0.5 GB at 28K tokens. On the text lane, int8 lowered the peak
 by only 0.11 GB, half of what halving the cache predicts, and decode was 5%
-slower in one run, which is within our run-to-run noise. Not worth it here.
+slower. That is one run each, too small a gap to call. Not worth it at 28K.
+At the full 128K context, this model's cache grows to about 2 GiB, and int8
+would give back about 1 GiB: that is where to try it.
 
 ## Speed: decode reads, it does not compute
 
