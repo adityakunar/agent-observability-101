@@ -17,7 +17,8 @@ So we asked two questions. Where do the 5 GB go? And what sets the speed? This
 page gives you:
 
 - why the name gives the wrong size, and where to read the right one;
-- one flag that gave back 0.95 GB, and one that made turn 2 about 16 times faster;
+- one flag that gave back 0.95 GB, and a default that makes later turns about
+  16 times faster;
 - a way to predict decode speed from three timed prompts;
 - where the extra memory of a long prompt goes, and how much of it you can save.
 
@@ -39,9 +40,8 @@ One run for each number.
   new prompt starts the same way, it skips that part of the prefill. Most of
   our tests turn it off, so that every prompt is read in full and we time the
   model, not the cache.
-- **4-bit**: MLX stores weights in groups of 64, and each group keeps a 16-bit
-  scale and a 16-bit offset. So "4-bit" is really 4 + 32 / 64 = 4.5 bits per
-  weight. Use 4.5 in every estimate.
+- **4-bit**: really 4.5 bits per weight, because each group of 64 weights
+  also keeps a 16-bit scale and a 16-bit offset. Use 4.5 in every estimate.
 
 ## Where the 7.5B comes from
 
@@ -70,8 +70,9 @@ behind every number on this page:
 
 **The lane.** At rest, the server held 5.15 GB, not 4.20. The checkpoint also
 carries a vision tower and an audio tower, 0.95 GB of 16-bit weights.
-rapid-mlx has two code paths, or lanes. When `mlx-vlm` is installed, as it was
-for us, it picks the multimodal lane and loads the towers. The server log says
+rapid-mlx can serve a model on a text-only lane or on a multimodal lane that
+also takes images and audio. When `mlx-vlm` is installed, as it was for us, it
+picks the multimodal lane and loads the towers. The server log says
 which: `mllm=True`. The pizza agent only reads and writes text, so we turned
 the towers off:
 
@@ -79,10 +80,10 @@ the towers off:
 make model MLX_ARGS="--text-only"
 ```
 
-| Lane | Held at rest | Peak at 28K tokens | First token at 28K | Decode at 28K |
-|---|---|---|---|---|
-| multimodal (what we got) | 5.15 GB | 7.23 GB | 13.8 s | 34.1 tok/s |
-| `--text-only` | 4.20 GB | 6.28 GB | 14.6 s | 33.0 tok/s |
+| Lane | Held at rest | Peak at 28K tokens |
+|---|---|---|
+| multimodal (what we got) | 5.15 GB | 7.23 GB |
+| `--text-only` | 4.20 GB | 6.28 GB |
 
 That is 0.95 GB back. What is left, 4.20 GB, is the text weights and almost
 nothing else. You lose image and audio input. The speed barely moves.
@@ -100,21 +101,22 @@ text lane the pool always read 0, so this works on the multimodal lane only.)
 | Freed buffers | 0.08 GB | 0.26 GB | 0.49 GB |
 
 Draw a line through those three points. It climbs 16.3 KiB for each token and
-starts at about 20 MiB: five times less than the calculator. The architecture
-predicts both numbers:
+starts at about 20 MiB: five times less than the calculator. Two design
+choices predict both numbers:
 
-- **35 of the 42 layers see only the last 512 tokens.** Their cache stops
-  growing at 512 tokens. That is the fixed 20 MiB.
-- **The last 18 layers borrow the cache of an earlier layer.** So only 4
-  layers keep a cache that grows. Each stores a key and a value for 2 heads of
-  512 numbers, at 2 bytes: 4 × 2 × 2 × 512 × 2 = 16 KiB per token.
+- **The last 18 layers borrow the cache of an earlier layer.** So only 24 of
+  the 42 layers keep a cache at all.
+- **Of those 24, 20 see only the last 512 tokens.** Their cache stops growing
+  there: 20 layers × 2 heads × 256 numbers × 2 (key and value) × 2 bytes ×
+  512 tokens = 20 MiB. The other 4 see everything and grow by 4 × 2 × 512 × 2
+  × 2 bytes = 16 KiB per token.
 
 **Should you compress the cache?** `--kv-cache-dtype int8` stores the growing
 cache in 8 bits instead of 16, so it halves it. But every decode step must
-unpack it again, so you pay in speed. That trade pays when the cache is big:
-a model that stores 128 KiB per token holds 3.4 GiB at 28K tokens, and int8
-gives back about 1.7. Here the cache is only about 0.5 GB. On the text
-lane at 28K tokens, int8 lowered the peak by 0.11 GB and made decode 5% slower.
+unpack it again, so you pay in speed. That trade pays when the cache is big.
+Here it is about 0.5 GB at 28K tokens. On the text lane, int8 lowered the peak
+by only 0.11 GB, half of what halving the cache predicts, and decode was 5%
+slower in one run, which is within our run-to-run noise. Not worth it here.
 
 ## Speed: decode reads, it does not compute
 
@@ -132,11 +134,11 @@ show by how much:
 | Decode | 44.0 tok/s | 38.0 tok/s | 34.1 tok/s |
 
 Turn the speeds into seconds per token and fit a straight line through the
-three runs. It lands within 2% of each one. Read its slope as 28 KiB of cache
-for each token of context, which is what the 7 global layers read. Then the
-line says that our Mac delivers about 108 GB/s, and that each token reads a
-fixed 2.4 GB. So at a short prompt: 108 ÷ 2.5 ≈ 43 tokens per second. We
-measured 44.
+three runs. It lands within 2% of each one. Now assume the slope is 28 KiB of
+cache for each token of context, which is what the 7 global layers read. Then
+the line says that our Mac's effective bandwidth is about 108 GB/s, and that
+each token reads a fixed 2.4 GB. At 3.5K tokens, the cache adds 0.1 GB: 108 ÷
+2.5 ≈ 43 tokens per second. We measured 44.
 
 **Why 2.4 GB, not 4.2?** The PLE table. It is 1.59 GB of memory, but each
 token reads one row of it: 10,752 numbers at 4.5 bits, about 6 KB. It costs
@@ -151,9 +153,10 @@ reads.
 ## Prefill: where the extra memory goes
 
 Reading a long prompt needs more memory than the KV cache it leaves behind.
-On the text lane at 28K tokens, the peak was 2.08 GB above rest, and the KV
-cache is 0.48 GB of that. The rest is working memory for the chunks. rapid-mlx
-reads the prompt in chunks of 2,048 tokens unless you set
+On the text lane at 28K tokens, the peak rose 2.08 GB above the memory at
+rest, and the KV cache is about 0.48 GB of that. The rest is working memory
+for the prompt chunks. rapid-mlx uses chunks of 2,048 tokens on the text lane
+(8,192 on the multimodal lane, says its log) unless you set
 `--prefill-step-size`. We tried four sizes, with the prefix cache off:
 
 | Chunk size | Peak above rest, 28K | of which KV cache (predicted) | First token, 28K |
@@ -165,21 +168,25 @@ reads the prompt in chunks of 2,048 tokens unless you set
 
 The working memory has two parts:
 
-- **A part that grows with chunk × prompt length.** Each global layer scores
+- **A part that grows with chunk × prompt length.** A global layer scores
   every token of the chunk against every token before it: 8 heads × chunk ×
-  context × 2 bytes. With chunks of 2,048, going from 7K to 28K tokens should
-  add 0.69 GB. The working memory grew by 0.66 GB.
+  context × 2 bytes, one layer at a time. With chunks of 2,048, going from 7K
+  to 28K tokens should add 0.69 GB. The working memory grew by 0.66 GB. At
+  8,192 the formula asks for more than the whole working memory, so MLX's
+  attention kernel likely does not keep all the scores at once there.
 - **About 0.6 GB that does not move.** With chunks of 256, the working memory
   was 0.58 to 0.61 GB at 7K, 14K and 28K. We have not found what holds it.
 
-So 512 is the sweet spot here: 0.56 GB less than the default, and the first
-token came no later. Smaller chunks start to cost time, and bigger ones cost
-both memory and time.
+So 512 is the sweet spot here: 0.56 GB less than the default, for about the
+same first-token time (0.3 s sooner here, 0.7 s later in a run on the
+multimodal lane). Smaller chunks start to cost time, and bigger ones cost both
+memory and time.
 
 ## Prefix cache: the agent's best friend
 
 An agent sends the whole chat again on every turn, so turn 2 starts with all
-of turn 1. With the prefix cache on (the default), we ran a 4-turn chat that
+of turn 1. The tests above turned the prefix cache off so that each one timed
+a full prefill. Here we turned it back on (the default) for a 4-turn chat that
 starts with a 7K-token message:
 
 | Turn | First token, cache off | First token, cache on | Prompt tokens reused |
@@ -190,9 +197,11 @@ starts with a 7K-token message:
 | 4 | 3.5 s | 0.21 s | 7,441 of 7,638 |
 
 From turn 2, the server reads only the ~200 new tokens. The cost is memory:
-the server held 0.3 GB more after each turn, because it keeps two snapshots
-of the cache per request, about 150 MB each at 7K tokens. It caps them at
-4 GB here. It also saves them to disk when it stops: 1.1 GB after this chat.
+the server held 0.3 GB more after each turn, because it keeps two saved
+copies of the KV cache per request, about 150 MB each at 7K tokens. It caps
+them at 4 GB here. It also writes them to disk when it stops, 1.1 GB after
+this chat, and loads them at the next start. `--disable-disk-caches` turns
+that off.
 
 ## Take these home
 
@@ -207,9 +216,10 @@ of the cache per request, about 150 MB each at 7K tokens. It caps them at
   bandwidth and its cost per token of context.
 - **Compress the cache only when it is big.** Here int8 KV saved 0.11 GB and
   cost 5% of decode speed.
-- **Try a smaller prefill chunk.** 512 saved 0.56 GB for free on this model.
-- **Keep the prefix cache on for an agent,** and know that it holds memory
-  and writes the chat's cache to disk.
+- **Try a smaller prefill chunk.** 512 saved 0.56 GB on this model, at about
+  the same speed.
+- **Keep the prefix cache on for an agent.** It holds memory, and it keeps
+  the chat's cache on disk unless you add `--disable-disk-caches`.
 
 One Mac, one checkpoint, one run for each number. The shapes hold for the
 architecture. The exact values are ours, not yours.
