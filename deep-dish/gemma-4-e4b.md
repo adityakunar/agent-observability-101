@@ -17,25 +17,28 @@ So we asked two questions. Where do the 5 GB go? And what sets the speed? This
 page gives you:
 
 - why the name gives the wrong size, and where to read the right one;
-- one flag that gave back 0.95 GB;
+- one flag that gave back 0.95 GB, and one that made turn 2 about 16 times faster;
 - a way to predict decode speed from three timed prompts;
 - where the extra memory of a long prompt goes, and how much of it you can save.
 
 **The setup.** One Mac: an M5 Pro with 24 GB, rapid-mlx 1.0.1, MLX 0.32.4.
 The checkpoint is `mlx-community/gemma-4-e4b-it-4bit`. Each test sends a
-prompt of 10 to 28K tokens, at temperature 0, with the prefix cache off so
-the server reads every prompt from the start. Memory is `metal` from
+prompt of 10 to 28K tokens at temperature 0. Memory is `metal` from
 `GET /v1/status`, the same source as the MLX peak in Chapter 1's
 [Measure](../article.md#3-measure-one-line-for-each-model-request) line.
 One run for each number.
 
-**Four words you will meet.**
+**Five words you will meet.**
 
 - **Prefill**: the model reads your whole prompt, in chunks. It sets the time
   to the first token.
 - **Decode**: the model writes its reply, one token at a time.
 - **KV cache**: what the model keeps for each token it has read, so it never
   reads the prompt twice. It grows with the context.
+- **Prefix cache**: the server keeps the KV cache of earlier requests. When a
+  new prompt starts the same way, it skips that part of the prefill. Most of
+  our tests turn it off, so that every prompt is read in full and we time the
+  model, not the cache.
 - **4-bit**: MLX stores weights in groups of 64, and each group keeps a 16-bit
   scale and a 16-bit offset. So "4-bit" is really 4 + 32 / 64 = 4.5 bits per
   weight. Use 4.5 in every estimate.
@@ -151,7 +154,7 @@ Reading a long prompt needs more memory than the KV cache it leaves behind.
 On the text lane at 28K tokens, the peak was 2.08 GB above rest, and the KV
 cache is 0.48 GB of that. The rest is working memory for the chunks. rapid-mlx
 reads the prompt in chunks of 2,048 tokens unless you set
-`--prefill-step-size`. We tried four sizes:
+`--prefill-step-size`. We tried four sizes, with the prefix cache off:
 
 | Chunk size | Peak above rest, 28K | of which KV cache (predicted) | First token, 28K |
 |---|---|---|---|
@@ -173,6 +176,24 @@ So 512 is the sweet spot here: 0.56 GB less than the default, and the first
 token came no later. Smaller chunks start to cost time, and bigger ones cost
 both memory and time.
 
+## Prefix cache: the agent's best friend
+
+An agent sends the whole chat again on every turn, so turn 2 starts with all
+of turn 1. With the prefix cache on (the default), we ran a 4-turn chat that
+starts with a 7K-token message:
+
+| Turn | First token, cache off | First token, cache on | Prompt tokens reused |
+|---|---|---|---|
+| 1 | 3.1 s | 3.3 s | 4 of 7,017 |
+| 2 | 3.1 s | 0.18 s | 7,025 of 7,222 |
+| 3 | 3.5 s | 0.22 s | 7,233 of 7,430 |
+| 4 | 3.5 s | 0.21 s | 7,441 of 7,638 |
+
+From turn 2, the server reads only the ~200 new tokens. The cost is memory:
+the server held 0.3 GB more after each turn, because it keeps two snapshots
+of the cache per request, about 150 MB each at 7K tokens. It caps them at
+4 GB here. It also saves them to disk when it stops: 1.1 GB after this chat.
+
 ## Take these home
 
 - **Read the size from the file, not from the name.** Parameters × bits misses
@@ -187,6 +208,8 @@ both memory and time.
 - **Compress the cache only when it is big.** Here int8 KV saved 0.11 GB and
   cost 5% of decode speed.
 - **Try a smaller prefill chunk.** 512 saved 0.56 GB for free on this model.
+- **Keep the prefix cache on for an agent,** and know that it holds memory
+  and writes the chat's cache to disk.
 
 One Mac, one checkpoint, one run for each number. The shapes hold for the
 architecture. The exact values are ours, not yours.
