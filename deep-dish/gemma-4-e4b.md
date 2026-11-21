@@ -19,7 +19,7 @@ page gives you:
 - why the name gives the wrong size, and where to read the right one;
 - one flag that gave back 0.95 GB;
 - a way to predict decode speed from three timed prompts;
-- one setting that helped and that we cannot fully explain.
+- where the extra memory of a long prompt goes, and how much of it you can save.
 
 **The setup.** One Mac: an M5 Pro with 24 GB, rapid-mlx 1.0.1, MLX 0.32.4.
 The checkpoint is `mlx-community/gemma-4-e4b-it-4bit`. Each test sends a
@@ -145,16 +145,33 @@ memory and almost no bandwidth. What each token does read is the 4B core
 it, at every token. Sharing saved the memory of 3 caches, but none of their
 reads.
 
-## Prefill step size: a trade we only half understand
+## Prefill: where the extra memory goes
 
-The multimodal lane logged prefill chunks of 8,192 tokens. With
-`--prefill-step-size 512`, the peak fell by 0.42 GB at 14K tokens and 0.57 GB
-at 28K, and the first token came 5% to 6% later. A fair trade when memory is
-tight.
+Reading a long prompt needs more memory than the KV cache it leaves behind.
+On the text lane at 28K tokens, the peak was 2.08 GB above rest, and the KV
+cache is 0.48 GB of that. The rest is working memory for the chunks. rapid-mlx
+reads the prompt in chunks of 2,048 tokens unless you set
+`--prefill-step-size`. We tried four sizes:
 
-The honest part: even with 512, the peak at 28K was 1.51 GB above rest. The
-KV cache accounts for about 0.49 GB of that. We cannot yet say where the other
-1 GB goes.
+| Chunk size | Peak above rest, 28K | of which KV cache (predicted) | First token, 28K |
+|---|---|---|---|
+| 256 | 1.09 GB | 0.48 GB | 16.2 s |
+| 512 | 1.52 GB | 0.48 GB | 14.3 s |
+| 2,048 (default) | 2.08 GB | 0.48 GB | 14.5 s |
+| 8,192 | 3.04 GB | 0.48 GB | 16.9 s |
+
+The working memory has two parts:
+
+- **A part that grows with chunk × prompt length.** Each global layer scores
+  every token of the chunk against every token before it: 8 heads × chunk ×
+  context × 2 bytes. With chunks of 2,048, going from 7K to 28K tokens should
+  add 0.69 GB. The working memory grew by 0.66 GB.
+- **About 0.6 GB that does not move.** With chunks of 256, the working memory
+  was 0.58 to 0.61 GB at 7K, 14K and 28K. We have not found what holds it.
+
+So 512 is the sweet spot here: 0.56 GB less than the default, and the first
+token came no later. Smaller chunks start to cost time, and bigger ones cost
+both memory and time.
 
 ## Take these home
 
@@ -169,6 +186,7 @@ KV cache accounts for about 0.49 GB of that. We cannot yet say where the other
   bandwidth and its cost per token of context.
 - **Compress the cache only when it is big.** Here int8 KV saved 0.11 GB and
   cost 5% of decode speed.
+- **Try a smaller prefill chunk.** 512 saved 0.56 GB for free on this model.
 
 One Mac, one checkpoint, one run for each number. The shapes hold for the
 architecture. The exact values are ours, not yours.
