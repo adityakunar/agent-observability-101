@@ -189,6 +189,10 @@ The working memory has two parts:
 - **About 0.6 GB that does not move.** With chunks of 256, the working memory
   was 0.58 to 0.61 GB at 7K, 14K and 28K. We have not found what holds it.
 
+So the 2.08 GB at the default adds up like this: the KV cache, 0.48 GB; one
+chunk's attention scores, 8 × 2,048 × 28,020 × 2 bytes ≈ 0.92 GB; and about
+0.7 GB left, close to the flat part we cannot yet place.
+
 So 512 is the sweet spot here: 0.56 GB less than the default, for about the
 same first-token time (0.3 s sooner here, 0.7 s later in an earlier run on
 the multimodal lane). Smaller chunks start to cost time, and bigger ones cost both
