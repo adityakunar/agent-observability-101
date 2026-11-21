@@ -56,10 +56,12 @@ checkpoint file lists every tensor and its size:
 
 The "E" is for *effective*. Each token runs through the 4B core and takes one
 row from each table. But the next token can need any row, so every row stays
-in memory. That gives the two rules behind every number below:
+in memory. That, and one more design choice below, give the three rules
+behind every number on this page:
 
 - **Memory follows what the model stores.**
 - **Speed follows what each token reads.**
+- **Sharing shrinks what is stored, not what is read.**
 
 ## Memory: the lane, then the cache
 
@@ -80,32 +82,47 @@ make model MLX_ARGS="--text-only"
 | `--text-only` | 4.20 GB | 6.28 GB | 14.6 s | 33.0 tok/s |
 
 That is 0.95 GB back. What is left, 4.20 GB, is the text weights and almost
-nothing else. You lose image and audio input. The speed barely moves; the
-lanes cut prompts into different chunks, and one run each is too little to
-read more into it.
+nothing else. You lose image and audio input. The speed barely moves.
 
 **The cache.** A general KV calculator counts every layer the same way and
-gives 84 KiB per token for this model. After each request on the multimodal
-lane, MLX kept the freed buffers in its pool (`cache_memory`):
+gives 84 KiB per token for this model. To see the real size, we read MLX's
+pool of freed buffers. When a request ends, its KV cache is no longer needed,
+but MLX does not hand that memory back to macOS. It keeps it in a pool for the
+next request, and `/v1/status` reports the pool as `cache_memory`. Right after
+a request, the pool is about the size of that request's KV cache. (On the
+text lane the pool always read 0, so this works on the multimodal lane only.)
 
 | Prompt tokens | 3,520 | 14,020 | 28,020 |
 |---|---|---|---|
 | Freed buffers | 0.08 GB | 0.26 GB | 0.49 GB |
 
-That is a line of 16.3 KiB per token plus 20 MiB: five times less. Two design
-choices cut it down. 35 of the 42 layers see only the last 512 tokens, so
-their cache stops at 20 MiB. And the last 18 layers borrow the cache of an
-earlier layer instead of keeping their own. Only 4 layers keep a cache that
-grows, and on paper they need 16 KiB per token.
+Draw a line through those three points. It climbs 16.3 KiB for each token and
+starts at about 20 MiB: five times less than the calculator. The architecture
+predicts both numbers:
 
-A small cache leaves little to compress. On the text lane at 28K tokens,
-`--kv-cache-dtype int8` lowered the peak by 0.11 GB and made decode 5% slower.
+- **35 of the 42 layers see only the last 512 tokens.** Their cache stops
+  growing at 512 tokens. That is the fixed 20 MiB.
+- **The last 18 layers borrow the cache of an earlier layer.** So only 4
+  layers keep a cache that grows. Each stores a key and a value for 2 heads of
+  512 numbers, at 2 bytes: 4 × 2 × 2 × 512 × 2 = 16 KiB per token.
+
+**Should you compress the cache?** `--kv-cache-dtype int8` stores the growing
+cache in 8 bits instead of 16, so it halves it. But every decode step must
+unpack it again, so you pay in speed. That trade pays when the cache is big:
+a model that stores 128 KiB per token holds 3.4 GiB at 28K tokens, and int8
+gives back about 1.7. Here the cache is only about 0.5 GB. On the text
+lane at 28K tokens, int8 lowered the peak by 0.11 GB and made decode 5% slower.
 
 ## Speed: decode reads, it does not compute
 
 Decode is limited by memory bandwidth. Each new token streams every weight it
-uses from memory, once, and the GPU waits for the bytes. So the speed is set
-by the bytes each token reads.
+uses from memory, once, and the GPU waits for the bytes:
+
+> tokens per second ≈ memory bandwidth ÷ bytes read per token
+
+For most models, the bytes read per token are about the model's size in
+memory, plus the KV cache. For E4B that guess is wrong, and the decode speeds
+show by how much:
 
 | Prompt tokens | 3,520 | 14,020 | 28,020 |
 |---|---|---|---|
@@ -113,17 +130,20 @@ by the bytes each token reads.
 
 Turn the speeds into seconds per token and fit a straight line through the
 three runs. It lands within 2% of each one. Read its slope as 28 KiB of cache
-for each token of context, which is what the 7 global layers read, and the
-fixed part comes out at about 2.4 GB for every token.
+for each token of context, which is what the 7 global layers read. Then the
+line says that our Mac delivers about 108 GB/s, and that each token reads a
+fixed 2.4 GB. So at a short prompt: 108 ÷ 2.5 ≈ 43 tokens per second. We
+measured 44.
 
-- **2.4 GB, not 4.2.** On paper, each token reads the 4B core (2.24 GB) and the
-  output layer, which reuses the token embedding table (0.38 GB): 2.6 GB. The
-  PLE table is 1.59 GB of memory, and each token reads one row of it. It costs
-  memory and almost no bandwidth.
-- **28 KiB, not 16.** The 7 global layers all read the cache, even the 3 that
-  borrow it. Sharing shrinks what is stored, not what is read.
+**Why 2.4 GB, not 4.2?** The PLE table. It is 1.59 GB of memory, but each
+token reads one row of it: 10,752 numbers at 4.5 bits, about 6 KB. It costs
+memory and almost no bandwidth. What each token does read is the 4B core
+(2.24 GB) and the output layer, which reuses the token embedding table
+(0.38 GB): 2.6 GB on paper, close to the 2.4 the line gives.
 
-The same rule, twice.
+**Why 28 KiB, not 16?** The 3 global layers that borrow a cache still read
+it, at every token. Sharing saved the memory of 3 caches, but none of their
+reads.
 
 ## Prefill step size: a trade we only half understand
 
@@ -145,10 +165,10 @@ KV cache accounts for about 0.49 GB of that. We cannot yet say where the other
 - **Count the KV cache by layer type.** Sliding windows and shared layers made
   a general calculator five times too high.
 - **Estimate decode from bytes read, not bytes stored.** Time three prompt
-  lengths and fit a line through seconds per token. It gives your Mac's fixed
-  cost and its cost per token of context.
-- **Measure before you compress the cache.** On a model with a small cache,
-  int8 KV saved 0.11 GB and cost 5% of decode speed.
+  lengths and fit a line through seconds per token. It gives your Mac's
+  bandwidth and its cost per token of context.
+- **Compress the cache only when it is big.** Here int8 KV saved 0.11 GB and
+  cost 5% of decode speed.
 
 One Mac, one checkpoint, one run for each number. The shapes hold for the
 architecture. The exact values are ours, not yours.
