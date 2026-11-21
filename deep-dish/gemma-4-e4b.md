@@ -131,18 +131,26 @@ uses from memory, once, and the GPU waits for the bytes:
 
 For most models, the bytes read per token are about the model's size in
 memory, plus the KV cache. For E4B that guess is wrong, and the decode speeds
-show by how much:
+show by how much (multimodal lane):
 
 | Prompt tokens | 3,520 | 14,020 | 28,020 |
 |---|---|---|---|
 | Decode | 44.0 tok/s | 38.0 tok/s | 34.1 tok/s |
 
 Turn the speeds into seconds per token and fit a straight line through the
-three runs. It lands within 2% of each one. Now assume the slope is 28 KiB of
-cache for each token of context, which is what the 7 global layers read. Then
-the line says that our Mac's effective bandwidth is about 108 GB/s, and that
-each token reads a fixed 2.4 GB. At 3.5K tokens, the cache adds 0.1 GB: 108 ÷
-2.5 ≈ 43 tokens per second. We measured 44.
+three runs. It lands within 2% of each one. The line has a fixed part (the
+weights) and a slope (the cache, per token of context). To turn seconds into
+bytes, you need to know how much cache each token of context reads. Try both
+answers:
+
+| If each token of context reads | Effective bandwidth | Weights read per token |
+|---|---|---|
+| 16 KiB (only the caches that are stored) | 62 GB/s | 1.36 GB |
+| 28 KiB (all 7 global layers) | 108 GB/s | 2.4 GB |
+
+1.36 GB is less than the 4B core alone, so the first answer is impossible.
+The second lands near the 2.6 GB on paper (below). So the decode speeds
+themselves say that the borrowed caches are still read.
 
 **Why 2.4 GB, not 4.2?** The PLE table. It is 1.59 GB of memory, but each
 token reads one row of it: 10,752 numbers at 4.5 bits, about 6 KB. It costs
@@ -152,7 +160,7 @@ memory and almost no bandwidth. What each token does read is the 4B core
 
 **Why 28 KiB, not 16?** The 3 global layers that borrow a cache still read
 it, at every token. Sharing saved the memory of 3 caches, but none of their
-reads.
+reads. That is the third rule, shown by the speeds rather than assumed.
 
 ## Prefill: where the extra memory goes
 
