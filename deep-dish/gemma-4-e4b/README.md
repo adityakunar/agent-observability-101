@@ -149,21 +149,22 @@ at 8 bits, in groups of 64 per its
 so 8.5 bits. It has the same 7.46 B weights and held 7.93 GB at rest, which is
 7.46 B × 8.5 bits. It reads about 4.9 GB per token.
 
-Text path, prefix cache off, so no reuse of earlier prompts (`--text-only
+Re-run on rapid-mlx 1.1.0, text path, prefix cache off (`--text-only
 --disable-prefix-cache`):
 
 | Prompt tokens | Gemma, 4-bit | Nemotron, 8-bit |
 |---|---|---|
-| 3.5K | (not run on this path) | 30.8 to 32.2 tok/s |
-| 7K | 34.7 to 43.9 tok/s (one slow run) | (not run) |
-| 14K | 38.1 to 38.9 tok/s | 27.0 to 27.2 tok/s |
-| 28K | 33.2 to 34.6 tok/s | 24.0 to 24.8 tok/s |
+| 3.5K | 44.0 to 46.3 tok/s | 26.6 to 29.8 tok/s |
+| 7K | 42.5 to 44.8 tok/s | 30.2 to 32.2 tok/s |
+| 14K | 36.3 to 38.8 tok/s | 25.2 to 27.6 tok/s |
+| 28K | 33.5 to 34.4 tok/s | 21.9 to 25.2 tok/s |
 
-At 14K and 28K, Nemotron reads 1.9 times the bytes and is only 1.4 times
-slower. So part of each token's time does not depend on bytes read. Decode
-also slows from 14K to 28K, which fits each token reading a bigger cache.
-Implied bandwidth on this Mac at 28K: about 89 GB/s for Gemma and 119 GB/s for
-Nemotron (100 and 134 at 14K), so treat the formula as a rough guide.
+Nemotron reads 1.9 times the bytes and is, by median, 1.3 to 1.5 times slower.
+So part of each token's time does not depend on bytes read. Gemma's decode
+slows from 14K to 28K, which fits each token reading a bigger cache. Median
+implied bandwidth at 28K: 87 GB/s for Gemma and 123 GB/s for Nemotron (96 and
+129 at 14K). Nemotron was oddly slower at 3.5K
+than at 7K in all three runs.
 
 ## Prefill: the peak of a long prompt
 
