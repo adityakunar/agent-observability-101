@@ -11,12 +11,12 @@ license = "MIT"
 requires-python = ">=3.11"
 authors = [{ name = "Aditya Kunar" }]
 dependencies = [
-    "fastmcp[apps]==4.1.6",
+    "fastmcp[apps]==4.2.0",
     "prefab-ui==0.21.1",
-    "openai==3.46.0",
-    "httpx2==2.16.0",
+    "openai==3.52.0",
+    "httpx2==2.16.2",
     "pydantic==2.14.3",
-    "pydantic-settings==2.16.2",
+    "pydantic-settings==2.16.3",
     # Retain the reviewed security versions when installing without uv.lock, too.
     "pyjwt[crypto]==2.15.1",
     "pyyaml==6.0.3",
@@ -52,6 +52,6 @@ warn_return_any = true
 dev = [
     "mypy==2.4.1",
     "pytest==9.2.0",
-    "pytest-asyncio==1.4.1.post1",
-    "ruff==0.17.4",
+    "pytest-asyncio==1.5.0",
+    "ruff==0.17.5",
 ]
