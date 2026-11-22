@@ -1,6 +1,6 @@
 # A local model, the pizza MCP server with its delivery desk, a terminal chat and its record.
 UV          ?= uv
-RAPID_MLX_VERSION ?= 1.0.1
+RAPID_MLX_VERSION ?= 1.1.0
 # A second macOS user that holds rapid-mlx (SECURITY.md 3.6). Used when this user has no rapid-mlx.
 MODEL_USER  ?= ai-playground
 LLM_MODEL   ?= gemma-4-e4b-4bit

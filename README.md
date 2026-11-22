@@ -54,7 +54,7 @@ On an Apple silicon Mac, install [rapid-mlx](https://github.com/raullenchai/Rapi
 as a separate tool:
 
 ```bash
-uv tool install rapid-mlx==1.0.1
+uv tool install rapid-mlx==1.1.0
 ```
 
 Then start the chapter. `make up` starts the model and the server in the
@@ -82,7 +82,7 @@ starts too early reports that it cannot reach them. Press Ctrl+C in a terminal t
 stop that part.
 
 Versions are pinned: **Prefab (`prefab-ui`) 0.21.1**, **FastMCP 4.1.4**,
-**rapid-mlx 1.0.1**, **uv 0.13.6** and **Python 3.14.4** (selected by
+**rapid-mlx 1.1.0**, **uv 0.13.6** and **Python 3.14.4** (selected by
 [.python-version](.python-version); uv installs it if needed, and the package
 accepts Python 3.11 or newer). [uv.lock](uv.lock) fixes the rest, including
 artifact hashes, and Make commands use `--locked`, so a dependency edit needs a
