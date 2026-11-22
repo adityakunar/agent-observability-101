@@ -181,8 +181,7 @@ class FaqActivityMiddleware(Middleware):
             del lookups[:-20]
 ```
 
-The tool does its work and the observer records it. Each has one job. Chapter 2
-uses the same position, around the tool call, to record a trace of each call.
+The tool does its work and the observer records it. Each has one job.
 
 The record shows that the assistant read a document. It does not show that the
 answer agrees with the document. Open the document and compare.
@@ -414,7 +413,8 @@ We left three faults in the app. Each one is the subject of a later chapter.
 ## Next: Chapter 2
 
 In this chapter you compared claims, actions and outcomes with your own eyes.
-The plan for Chapter 2 is to record them: each model request, each tool call and
-each change to a record, connected to the customer message that caused it. Later
+[Chapter 2](chapter-2.md) records them: each model request, each tool call and
+each change to a record, connected to the customer message that caused it. It
+finds the step where the false answer of this chapter went wrong. Later
 chapters turn those records into business events, check the events with code,
 and use a second model as a judge for the claims that code cannot check.

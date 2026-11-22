@@ -1,4 +1,4 @@
-# Agent observability 101 — Chapter 1
+# Agent observability 101
 
 The assistant says the order is placed. Did it happen?
 
@@ -22,7 +22,9 @@ What you take away:
 - **One test with no model:** [tests/test_sushi_pizza.py](tests/test_sushi_pizza.py).
 - **One list:** [Use this in your project](article.md#use-this-in-your-project).
 
-The [article](article.md) is the chapter. This page gets you started. It is for
+The [article](article.md) is Chapter 1. [Chapter 2](chapter-2.md) records each
+step of a chat and finds the one where a false answer went wrong. This page
+gets you started. It is for
 Python developers and data scientists who know functions, dictionaries and basic
 HTTP.
 
@@ -272,10 +274,24 @@ Leave the chat with `/quit`, start a new one with `make chat`, and type:
 > I'm allergic to celery. Is there celery in the BBQ sauce? If so, swap it for a personal Margherita, thin crust.
 
 Read the reply, then look at the `tool>` lines and at the cart on the delivery
-desk. In most of our tries the assistant said that it removed the BBQ Chicken,
+desk. Often the assistant said that it removed the BBQ Chicken,
 the only tool that ran was `faq_read`, and the cart did not change. If your
 chat makes the swap, start a new chat and try again. This is the fault that the
 [article](article.md) starts with.
+
+### Then find the step
+
+Each chat writes a record to `.run/records/`. Read the newest one:
+
+```bash
+make inspect VERB=show   # each step: what the model asked, what the host did, what changed
+make inspect             # only the steps where two of these disagree
+```
+
+`make inspect` needs the model: it sends each recorded request again to check
+that the record holds what the model received. [Chapter 2](chapter-2.md)
+explains the output. A record holds the full conversation, so Git ignores the
+folder.
 
 Nothing is charged or delivered: this is a demo. The records are in memory and
 are gone when the server stops. A real model can take a different path from the
@@ -290,6 +306,8 @@ src/agent_observability/
 ├── chat.py              the terminal chat: wires the model, MCP client and display
 ├── model.py             one model request (APIModel)
 ├── client.py            the host: the bounded model → tools → model loop (Agent)
+├── record.py            the record of a chat: three layers for each step (Chapter 2)
+├── inspector.py         reads a record and finds the step where layers disagree
 ├── llm/                 the Model contract, the stream reader and the metrics of a request
 ├── pizza/
 │   ├── domain.py        the records: menu items, carts, orders
@@ -309,15 +327,14 @@ The menu records, the desk styling and the screenshot are in [resources/](resour
 
 The offline tests use the real MCP tools and a model that answers from a script.
 They check the business rules and the rules of the host. They do not measure how
-reliable a model is. This chapter has no trace export, no evaluation and no
-saved conversations.
+reliable a model is. The repository has no trace export and no evaluation, and
+it saves a conversation only in the local record of its chat.
 
 ## What comes next
 
-The plan for Chapter 2 is to record the model requests, the tool calls and the
-changes to the records of this same conversation. Later chapters turn those
-records into business events, check the events with code, and use a second
-model as a judge for what the assistant said.
+The plan for Chapter 3 is to turn the steps of a record into business events.
+Later chapters check the events with code, and use a second model as a judge
+for what the assistant said.
 
 Each released chapter keeps its own Git tag.
 
