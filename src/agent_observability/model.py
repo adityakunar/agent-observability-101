@@ -58,7 +58,21 @@ class APIModel:
         except (APIError, httpx.HTTPError, ValueError) as exc:
             raise request_error(exc, self.base_url) from exc
         measurements = timer.finish()
+        reply.context_tokens = measurements.context_tokens
         if self.on_metrics:
             peak = await read_mlx_peak(self.client)
             self.on_metrics(replace(measurements, mlx_peak_gb=peak))
         return reply
+
+    async def count_context(
+        self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]
+    ) -> int | None:
+        """Ask the server how many prompt tokens a request has. It generates one token."""
+        request: dict[str, Any] = {"model": self.model, "messages": messages, "max_tokens": 1}
+        if tools:
+            request.update(tools=tools, tool_choice="auto")
+        try:
+            response = await self.client.chat.completions.create(**request)
+        except (APIError, httpx.HTTPError) as exc:
+            raise request_error(exc, self.base_url) from exc
+        return response.usage.prompt_tokens if response.usage else None

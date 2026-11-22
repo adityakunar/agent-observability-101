@@ -1,6 +1,6 @@
-# Chapter 1: local model + pizza MCP server with its delivery desk, and a terminal chat.
+# A local model, the pizza MCP server with its delivery desk, a terminal chat and its record.
 UV          ?= uv
-RAPID_MLX_VERSION ?= 1.0.1
+RAPID_MLX_VERSION ?= 1.1.0
 # A second macOS user that holds rapid-mlx (SECURITY.md 3.6). Used when this user has no rapid-mlx.
 MODEL_USER  ?= ai-playground
 LLM_MODEL   ?= gemma-4-e4b-4bit
@@ -29,7 +29,7 @@ DESK_URL    := http://localhost:$(MCP_PORT)
 PROBE       := curl --connect-timeout 1 --max-time 2 -sf
 
 .DEFAULT_GOAL := help
-.PHONY: help up status down check-model model model-stop server chat verify check audit fmt key-status key-set rotate-key scan-secrets chat-offline server-offline
+.PHONY: help up status down check-model model model-stop server chat inspect verify check audit fmt key-status key-set rotate-key scan-secrets chat-offline server-offline
 
 help:
 	@echo "Run: one terminal for each command. Ctrl+C stops it."
@@ -43,6 +43,9 @@ help:
 	@echo "  make status    which model the chat will use, and what answers on each port"
 	@echo "  make down      stop what make up started"
 	@echo "  make model-stop  stop the model server, also one that $(MODEL_USER) started"
+	@echo "Read the record of a chat"
+	@echo "  make inspect   the steps of the newest chat where two layers disagree"
+	@echo "  make inspect VERB=show   each step: what the model asked, what the host did, what changed"
 	@echo "Check"
 	@echo "  make verify    make check, then make audit"
 	@echo "  make check     formatting, lint, types and offline tests (no network)"
@@ -82,6 +85,14 @@ server:
 
 chat:
 	$(UV) run --locked python -m agent_observability.chat
+
+# The newest record in $(RUN_DIR)/records, or RECORD=path. check also needs the model:
+# it sends each recorded request again to compare token counts.
+VERB   ?= check
+RECORD ?=
+
+inspect:
+	@$(UV) run --locked python -m agent_observability.inspector $(VERB) $(RECORD)
 
 # make model and make server in the background, with logs and process IDs in $(RUN_DIR).
 # A part that already answers is left as it is. After a wait that was too short,

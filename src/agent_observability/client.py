@@ -7,7 +7,8 @@ Read this file from top to bottom:
 3. Agent.send      the bounded model → tools → model loop
 4. the helpers     record the model's reply, run its tool requests, call one tool
 
-The model proposes. The host executes.
+The model proposes. The host executes. The recorder (record.py) writes down both,
+and what changed in the business record.
 """
 
 import copy
@@ -21,6 +22,7 @@ from fastmcp import Client
 from fastmcp.exceptions import ToolError
 
 from agent_observability.model import Model, ModelError, Reply, TextCallback, ToolCall
+from agent_observability.record import Recorder, Step
 
 # What the host adds when it asks a silent model again: a message with no words. It
 # closes the turn that the model left open and starts a new one. Words here are an
@@ -55,12 +57,14 @@ class Agent:
         allowed_tools: set[str] | None = None,
         max_tool_iterations: int = 12,
         max_tool_calls: int = 16,
+        recorder: Recorder | None = None,
     ) -> None:
         if max_tool_iterations < 1 or max_tool_calls < 1:
             raise ValueError("Model-step and tool-call budgets must be positive.")
         self.client = client
         self.model = model
         self.session_id = uuid4().hex  # one cart for each chat; the host adds it to tool calls
+        self.recorder = recorder or Recorder()  # with no path, it records nothing
         self.allowed_tools = allowed_tools
         self.max_tool_iterations = max_tool_iterations  # model requests for each customer message
         self.max_tool_calls = max_tool_calls  # tool calls for each customer message
@@ -97,6 +101,9 @@ class Agent:
                 },
             }
         self.tools = list(self.available.values())
+        self.recorder.start(
+            self.session_id, tools=self.tools, business_tools=sorted(self.mutation_tools)
+        )
 
     async def send(
         self,
@@ -111,6 +118,7 @@ class Agent:
         completed: dict[str, str] = {}  # business actions done in this turn, with their results
         dispatched = 0  # tool calls made in this turn
         cue = False  # add the cue to the next model request
+        await self.recorder.begin_turn(text)
         try:
             for _ in range(self.max_tool_iterations):
                 advertised = {tool["function"]["name"] for tool in self.tools}
@@ -119,6 +127,7 @@ class Agent:
                 request = [*self.messages, CUE] if cue else self.messages
                 cue = False
                 reply = await self.model.complete(request, self.tools, on_text=on_text)
+                step = self.recorder.begin_step(request, reply)
                 text = reply.text or ""
                 if not reply.tool_calls and not text.strip():
                     # The reply is silent: no tool request and no text. Some models end
@@ -127,11 +136,15 @@ class Agent:
                     if not turn.reasks:
                         turn.reasks += 1
                         cue = True
+                        step["host"].append({"decision": "asked again"})
+                        await self.recorder.end_step(step)
                         continue
                     # Still silent. The host answers. The history keeps only the
                     # model's own words.
                     turn.fallback = True
                     turn.text = self._fallback(turn.calls, "The model returned no answer.")
+                    step["host"].append({"decision": "fallback", "result": turn.text})
+                    await self.recorder.end_step(step)
                     if on_text:
                         on_text(turn.text)
                     return turn
@@ -139,10 +152,12 @@ class Agent:
                 if not prepared:
                     # No tool requests: the model's text is the answer.
                     turn.text = text
+                    await self.recorder.end_step(step)
                     return turn
                 dispatched = await self._run_tools(
-                    prepared, advertised, turn, completed, dispatched, on_tool
+                    prepared, advertised, turn, completed, dispatched, on_tool, step
                 )
+                await self.recorder.end_step(step)
                 # Stop when the tool-call budget is used, or when the model repeated a
                 # business action. The wrap-up below gives the answer.
                 if turn.exhausted or turn.duplicates:
@@ -158,9 +173,11 @@ class Agent:
                 "Do not claim unperformed actions or propose more tool calls this turn."
             )
             reply = await self.model.complete(wrapup, [], on_text=on_text)
+            step = self.recorder.begin_step(wrapup, reply, with_tools=False)
             if reply.text and reply.text.strip():
                 turn.text = reply.text
                 self.messages.append({"role": "assistant", "content": turn.text})
+                await self.recorder.end_step(step)
                 return turn
             turn.text = self._fallback(
                 turn.calls, "This turn stopped before the model could finish."
@@ -171,11 +188,14 @@ class Agent:
             # A model request failed. Tell the customer which actions were already done.
             turn.error = str(exc)
             turn.text = self._fallback(turn.calls, str(exc))
+            step = self.recorder.begin_step(None, None)  # the request failed: no reply to record
             if on_text:
                 on_text("\n" + turn.text)
         # The host wrote this answer. It goes to the customer, not into the history:
         # a model copies what it finds there.
         turn.fallback = True
+        step["host"].append({"decision": "fallback", "result": turn.text})
+        await self.recorder.end_step(step)
         return turn
 
     def _fallback(self, calls: list[str], reason: str) -> str:
@@ -253,6 +273,7 @@ class Agent:
         completed: dict[str, str],
         dispatched: int,
         on_tool: Callable[[str], None] | None,
+        step: Step,
     ) -> int:
         """Run the tool requests of one reply. Return the new count of tool calls.
 
@@ -265,6 +286,7 @@ class Agent:
                 on_tool(call.name)
             # The same tool with the same arguments is the same action.
             fingerprint = json.dumps([call.name, arguments], sort_keys=True)
+            decision = "ran"
             try:
                 if call.name not in advertised:
                     raise ToolError(f"Tool {call.name!r} is not available to this agent.")
@@ -278,6 +300,7 @@ class Agent:
                     # The model asked for the same business action twice in one turn.
                     # Do not run it again; give the first result back.
                     turn.duplicates += 1
+                    decision = "blocked repeat"
                     output = (
                         "Already completed once this turn; not executed again. Use quantity for identical items. Previous result: "
                         + completed[fingerprint]
@@ -289,8 +312,12 @@ class Agent:
                     if call.name in self.mutation_tools:
                         completed[fingerprint] = output
             except ToolError as exc:
+                decision = "rejected"
                 output = f"Rejected: {exc}"
                 turn.calls.append(f"{call.name} (rejected)")
+            step["host"].append(
+                {"tool": call.name, "arguments": arguments, "decision": decision, "result": output}
+            )
             self.messages.append({"role": "tool", "tool_call_id": call.id, "content": output})
         return dispatched
 

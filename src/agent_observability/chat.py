@@ -1,7 +1,11 @@
 """Wire the configured model, MCP client and terminal into one conversation."""
 
 import asyncio
+from datetime import datetime
+from pathlib import Path
+from typing import Any
 
+import httpx2 as httpx
 from fastmcp import Client
 
 from agent_observability.client import Agent
@@ -10,10 +14,20 @@ from agent_observability.keys import KeyExpiredError, KeyMissingError
 from agent_observability.model import APIModel
 from agent_observability.netpolicy import EgressDeniedError
 from agent_observability.pizza.prompt import PROMPT
+from agent_observability.record import Recorder
 from agent_observability.terminal import Console
 
 
+async def desk_snapshot() -> dict[str, Any]:
+    """Read the business records from the server's own view, not from the model."""
+    async with httpx.AsyncClient() as http:
+        data: dict[str, Any] = (await http.get("http://localhost:8000/desk/snapshot")).json()
+        return data
+
+
 async def run() -> None:
+    # One record for each chat. .run/ is not in Git: a record holds the full conversation.
+    record = Path(".run/records") / f"{datetime.now():%Y%m%d-%H%M%S}.jsonl"
     model = APIModel(
         settings.llm_base_url,
         settings.llm_model,
@@ -28,10 +42,12 @@ async def run() -> None:
                 PROMPT,
                 max_tool_iterations=settings.max_tool_iterations,
                 max_tool_calls=settings.max_tool_calls,
+                recorder=Recorder(record, desk_snapshot),
             )
             await agent.prepare()
             print(describe_model())
             print("Lantern Pizza — /quit to leave. Delivery desk: http://localhost:8000")
+            print(f"record: {record} (read it with make inspect)")
             while True:
                 try:
                     text = await asyncio.to_thread(input, "you> ")

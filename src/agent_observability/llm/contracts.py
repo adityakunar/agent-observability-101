@@ -21,6 +21,8 @@ class ToolCall:
 class Reply:
     text: str | None = None
     tool_calls: list[ToolCall] = field(default_factory=list)
+    # Prompt tokens that the server counted for this request; None if it reports none.
+    context_tokens: int | None = None
 
 
 class ModelError(RuntimeError):
