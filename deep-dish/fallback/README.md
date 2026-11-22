@@ -5,7 +5,7 @@ back the result, and the model answers with nothing: no text, no tool call, no
 error. Your customer is waiting. What do you show them, and what do you tell
 the model?
 
-We hit this with the pizza-ordering agent in [Chapter 1](../article.md), on a
+We hit this with the pizza-ordering agent in [Chapter 1](../../article.md), on a
 small model running on a laptop. Our answer took four rounds, and each fix
 made the model do something new. The fix that held is a message with no words
 in it.
@@ -161,7 +161,7 @@ The two cues and the code that picked between them went away.
 With no words in the cue, the order guard from round 4 had no reason left, so
 [#14](https://github.com/adityakunar/agent-observability-101/pull/14) removed
 it. Real approval belongs on the server, and Chapter 1 lists it under
-[What is still broken](../article.md#what-is-still-broken).
+[What is still broken](../../article.md#what-is-still-broken).
 
 ## Take these home
 
