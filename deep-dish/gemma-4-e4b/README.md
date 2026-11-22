@@ -33,7 +33,7 @@ at rest, and `peak_memory_gb`, the MLX peak in Chapter 1's
 [Measure](../../article.md#3-measure-one-line-for-each-model-request) line.
 Memory was identical in every run. Rerun the tests with
 [measure.py](measure.py) (`--tokens 3500` for the 3.5K rows; start the
-server with `--disable-disk-caches` for the chat test).
+server with `--disable-disk-caches` for the `--turns` chat test).
 
 **Words you will meet.**
 
