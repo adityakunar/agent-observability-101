@@ -1,18 +1,17 @@
 # Deep-dish: why a "4B" model needs 5 GB
 
-You want an agent that runs on your own laptop, so you pick a small model.
+You want an agent that runs on your laptop, so you pick a small model.
 Gemma 4 E4B: 4B parameters (weights), each stored in 4 bits. Four billion
-half-bytes is 2 GB, so it should fit beside your editor and your browser with
+half-bytes is 2 GB, so it should fit beside your editor and browser with
 room to spare.
 
-We expected that for the pizza agent in [Chapter 1](../../article.md). The model
+We expected that for the pizza agent in [Chapter 1](../../chapter-1.md). The model
 server held 5.15 GB before it read a word, and the longer the prompt, the
 slower the reply. For an agent both hurt: memory decides what else fits on
 your laptop, and the prompt only grows, because every turn sends the whole
 chat again.
 
-The model stores 7.5B parameters, and two rules explain most numbers on this
-page:
+The model stores 7.5B parameters, and two rules explain most numbers here:
 
 - **Memory follows what the model stores.**
 - **Speed follows what each token reads.**
@@ -27,13 +26,12 @@ estimate speed.
 **The setup.** An M5 Pro with 24 GiB (24 × 1,024³ bytes), the model server
 rapid-mlx 1.0.1 on Apple's MLX 0.32.4, the model file (checkpoint)
 `mlx-community/gemma-4-e4b-it-4bit`, prompts of up to 28K tokens at
-temperature 0 (no randomness), every test run three times unless marked
-otherwise. Memory comes from the server's `GET /v1/status`: `active_memory_gb`
+temperature 0 (no randomness), each test run three times unless marked. Memory comes from the server's `GET /v1/status`: `active_memory_gb`
 at rest, and `peak_memory_gb`, the MLX peak in Chapter 1's
-[Measure](../../article.md#3-measure-one-line-for-each-model-request) line.
+[Measure](../../chapter-1.md#3-measure-one-line-for-each-model-request) line.
 Memory was identical in every run. Rerun the tests with
-[measure.py](measure.py) (`--tokens 3500` for the 3.5K rows; start the
-server with `--disable-disk-caches` for the `--turns` chat test).
+[measure.py](measure.py) (`--tokens 3500` for the 3.5K rows; `--turns` needs
+a server started with `--disable-disk-caches`).
 
 **Words you will meet.**
 
@@ -199,7 +197,7 @@ request, which fits two copies of its cache, capped at 4 GB on this Mac. It
 also writes the cache to disk when the server stops (one run wrote 1.1 GB)
 and, per the code, loads it at the next start. [Next to the
 cache](https://github.com/raullenchai/Rapid-MLX/blob/v1.0.1/rapid_mlx/memory_cache.py)
-it saves each chat's tokens, which turn straight back into the text. If other
+it saves each chat's tokens, which turn back into the text. If other
 people use the machine, or it serves real customers, add
 `--disable-disk-caches`.
 

@@ -37,7 +37,7 @@ What you take away from this chapter:
 - **One list:** [Use this in your project](#use-this-in-your-project).
 
 This chapter is for Python users who can read functions and `async` calls. It
-continues [Chapter 1](article.md), and you can read it alone if you know two
+continues [Chapter 1](chapter-1.md), and you can read it alone if you know two
 words. The **host** is the Python loop between the model and the tools: it
 sends each request and runs each tool call
 ([client.py](src/agent_observability/client.py)). The **delivery desk** is a
