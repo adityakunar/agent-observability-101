@@ -326,7 +326,7 @@ and whether the model was already loaded. The app requests temperature 0.2 and
 at most 1,024 output tokens.
 
 Why the MLX peak of a "4B" model starts above 5 GB, and the flag that gives
-back almost 1 GB: read [the E4B deep-dish](deep-dish/gemma-4-e4b.md).
+back almost 1 GB: read [the E4B deep-dish](deep-dish/gemma-4-e4b/).
 
 ### Change the model in one place
 

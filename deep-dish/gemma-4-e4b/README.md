@@ -5,7 +5,7 @@ Gemma 4 E4B: 4B parameters (weights), each stored in 4 bits. Four billion
 half-bytes is 2 GB, so it should fit beside your editor and your browser with
 room to spare.
 
-We expected that for the pizza agent in [Chapter 1](../article.md). The model
+We expected that for the pizza agent in [Chapter 1](../../article.md). The model
 server held 5.15 GB before it read a word, and the longer the prompt, the
 slower the reply. For an agent both hurt: memory decides what else fits on
 your laptop, and the prompt only grows, because every turn sends the whole
@@ -30,9 +30,9 @@ rapid-mlx 1.0.1 on Apple's MLX 0.32.4, the model file (checkpoint)
 temperature 0 (no randomness), every test run three times unless marked
 otherwise. Memory comes from the server's `GET /v1/status`: `active_memory_gb`
 at rest, and `peak_memory_gb`, the MLX peak in Chapter 1's
-[Measure](../article.md#3-measure-one-line-for-each-model-request) line.
+[Measure](../../article.md#3-measure-one-line-for-each-model-request) line.
 Memory was identical in every run. Rerun the tests with
-[e4b_measure.py](e4b_measure.py) (`--tokens 3500` for the 3.5K rows).
+[measure.py](measure.py) (`--tokens 3500` for the 3.5K rows).
 
 **Words you will meet.**
 
