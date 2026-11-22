@@ -1,6 +1,6 @@
 """The Sushi Pizza: a true tool call, then a false answer. Run it and watch the gap.
 
-The article opens with this example. This test reproduces it with a scripted
+Chapter 1 shows this example. This test reproduces it with a scripted
 model, so you do not need a real model to see it:
 
     uv run pytest tests/test_sushi_pizza.py -v

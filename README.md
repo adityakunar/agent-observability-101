@@ -20,9 +20,9 @@ What you take away:
 - **One file to copy:** [client.py](src/agent_observability/client.py), the loop
   between the model and the tools.
 - **One test with no model:** [tests/test_sushi_pizza.py](tests/test_sushi_pizza.py).
-- **One list:** [Use this in your project](article.md#use-this-in-your-project).
+- **One list:** [Use this in your project](chapter-1.md#use-this-in-your-project).
 
-The [article](article.md) is Chapter 1. [Chapter 2](chapter-2.md) records each
+[Chapter 1](chapter-1.md) is the chapter described above. [Chapter 2](chapter-2.md) records each
 step of a chat and finds the one where a false answer went wrong. This page
 gets you started. It is for
 Python developers and data scientists who know functions, dictionaries and basic
@@ -127,7 +127,7 @@ sent; it grows every turn), **TTFT** (time to first token, measured at the clien
 **MLX peak** memory when a local rapid-mlx server reports it (for the whole server,
 not this conversation). Missing values show `n/a`. The line covers one model call:
 tool execution and waiting for the customer are not included. See
-[what the numbers mean](article.md#3-measure-one-line-for-each-model-request).
+[what the numbers mean](chapter-1.md#3-measure-one-line-for-each-model-request).
 
 ### Linux or another model endpoint
 
@@ -189,7 +189,7 @@ its own terminal. A hosted model needs no `make model`. Without `PROFILE`, both
 use the local model: a hosted model never runs unless you name it. Use your provider's actual
 endpoint and model identifier; the block above shows the shape, not real values. A hosted
 endpoint receives the conversation and tool results and may charge for calls.
-The article shows [the one method](article.md#change-the-model-in-one-place)
+Chapter 1 shows [the one method](chapter-1.md#change-the-model-in-one-place)
 that a model must have, so you can write a class for an API with a different
 format. The tools and the business rules do not change with the model.
 
@@ -255,7 +255,7 @@ an address, for example `Damrak 1, 1012 LG Amsterdam`. The tool saves your words
 as they are; it does not check that the address exists. Approve the order. The
 confirmed order appears in **Orders**, and the total is €20.96. If the assistant
 places the order before you approve, you have found a fault that we left in:
-see [What is still broken](article.md#what-is-still-broken).
+see [What is still broken](chapter-1.md#what-is-still-broken).
 
 Then ask a question that needs a source:
 
@@ -276,8 +276,8 @@ Leave the chat with `/quit`, start a new one with `make chat`, and type:
 Read the reply, then look at the `tool>` lines and at the cart on the delivery
 desk. Often the assistant said that it removed the BBQ Chicken,
 the only tool that ran was `faq_read`, and the cart did not change. If your
-chat makes the swap, start a new chat and try again. This is the fault that the
-[article](article.md) starts with.
+chat makes the swap, start a new chat and try again. This is the fault that
+[Chapter 1](chapter-1.md) starts with.
 
 ### Then find the step
 
