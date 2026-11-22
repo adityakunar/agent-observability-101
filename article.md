@@ -237,7 +237,7 @@ The host keeps six rules. No wording from the model changes them.
 The chat prints a note when the host asked again or wrote the answer itself, so
 you can count how often that happens.
 The last two rules took four rounds to find, and each fix made a new
-behaviour: read [the fallback deep-dish](deep-dish/fallback.md).
+behaviour: read [the fallback deep-dish](deep-dish/fallback/).
 
 When a rule stops a call, the model gets a tool result that starts with
 `Rejected:`. The model can read it and correct itself. When a budget stops the
@@ -326,7 +326,7 @@ and whether the model was already loaded. The app requests temperature 0.2 and
 at most 1,024 output tokens.
 
 Why the MLX peak of a "4B" model starts above 5 GB, and the flag that gives
-back almost 1 GB: read [the E4B deep-dish](deep-dish/gemma-4-e4b.md).
+back almost 1 GB: read [the E4B deep-dish](deep-dish/gemma-4-e4b/).
 
 ### Change the model in one place
 

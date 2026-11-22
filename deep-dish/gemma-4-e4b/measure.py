@@ -3,8 +3,11 @@
 Start the server with the setting you want to test, then run this script:
 
     make model MLX_ARGS="--text-only --disable-prefix-cache"
-    uv run python deep-dish/e4b_measure.py              # prompts of about 7K, 14K and 28K tokens
-    uv run python deep-dish/e4b_measure.py --turns 4    # one chat: is turn 2 served from the prefix cache?
+    uv run python deep-dish/gemma-4-e4b/measure.py           # prompts of about 7K, 14K and 28K tokens
+    uv run python deep-dish/gemma-4-e4b/measure.py --turns 4 # one chat: is turn 2 served from the prefix cache?
+
+For --turns with the prefix cache on, drop --disable-prefix-cache and add
+--disable-disk-caches, so the server does not save the chat to disk when it stops.
 
 Each run prints one line: prompt tokens, time to first token, decode speed and the
 server's memory from /v1/status. Restart the server between settings, and run each
