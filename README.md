@@ -339,8 +339,9 @@ The menu records, the desk styling and the screenshot are in [resources/](resour
 
 The offline tests use the real MCP tools and a model that answers from a script.
 They check the business rules and the rules of the host. They do not measure how
-reliable a model is. The repository has no trace export and no evaluation, and
-it saves a conversation only in the local record of its chat.
+reliable a model is: `make measure` does that, over scripted chats with the model.
+The repository has no trace export and no model that grades the replies, and it
+keeps conversations only in local records.
 
 ## What comes next
 
