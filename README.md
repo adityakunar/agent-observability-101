@@ -84,7 +84,7 @@ terminal 2 have started. On the first run that takes a while, and a chat that
 starts too early reports that it cannot reach them. Press Ctrl+C in a terminal to
 stop that part.
 
-Versions are pinned: **Prefab (`prefab-ui`) 0.21.1**, **FastMCP 4.1.4**,
+Versions are pinned: **Prefab (`prefab-ui`) 0.21.1**, **FastMCP 4.1.6**,
 **rapid-mlx 1.1.0**, **uv 0.13.6** and **Python 3.14.4** (selected by
 [.python-version](.python-version); uv installs it if needed, and the package
 accepts Python 3.11 or newer). [uv.lock](uv.lock) fixes the rest, including
