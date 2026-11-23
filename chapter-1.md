@@ -26,7 +26,8 @@ pizza with celery.
 The shop is a demo and the menu is made up. The failure is not: a real shop
 with this agent delivers that pizza to that customer.
 
-This is not a rare accident. In 30 recorded chats with these two messages, 14
+This is not a rare accident. In 30 recorded chats with these two messages (nine tools, at a
+temperature that was not recorded; [Chapter 2](chapter-2.md) has the conditions), 14
 replies said that a change was made when the cart was the same, 11 chats made
 the swap, and 5 offered the swap and asked first. The share moved between
 batches of ten, and yours will differ:

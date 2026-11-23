@@ -139,9 +139,14 @@ A script sent the same two messages to 30 new chats, in three batches of ten,
 and we read each turn 2 from its record. The first message orders the pizza:
 both are in the [README](README.md#then-see-a-false-claim). The script used the
 same host and recorder as `make chat`, with the tools in its own process. To
-repeat it by hand, start a new `make chat` for each try.
-Conditions: Gemma 4 E4B (4-bit) on rapid-mlx 1.1.0, temperature 0.2, an M5 Pro
-with 24 GiB.
+repeat it by hand, start a new `make chat` for each try; `make chat` runs at 0.2
+with ten tools, so your share will differ from the table.
+Conditions: Gemma 4 E4B (4-bit) on rapid-mlx 1.1.0, an M5 Pro with 24 GiB,
+nine tools (before `change_pizza`).
+The temperature was not reliably recorded: most likely 1.0, the server's
+default for this model; inferred, not measured.
+[Chapter 3](chapter-3.md#4-find-the-part-of-the-loop-to-blame) shows what the
+temperature changes.
 
 | Turn 2 | Batch 1 | Batch 2 | Batch 3 | Total |
 |---|---|---|---|---|
