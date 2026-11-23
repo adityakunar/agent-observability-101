@@ -29,7 +29,7 @@ DESK_URL    := http://localhost:$(MCP_PORT)
 PROBE       := curl --connect-timeout 1 --max-time 2 -sf
 
 .DEFAULT_GOAL := help
-.PHONY: help up status down check-model model model-stop server chat inspect verify check audit fmt key-status key-set rotate-key scan-secrets chat-offline server-offline
+.PHONY: help up status down check-model model model-stop server chat inspect measure verify check audit fmt key-status key-set rotate-key scan-secrets chat-offline server-offline
 
 help:
 	@echo "Run: one terminal for each command. Ctrl+C stops it."
@@ -46,6 +46,11 @@ help:
 	@echo "Read the record of a chat"
 	@echo "  make inspect   the steps of the newest chat where two layers disagree"
 	@echo "  make inspect VERB=show   each step: what the model asked, what the host did, what changed"
+	@echo "Measure many chats"
+	@echo "  make measure   3 batches of 10 scripted chats with the model, then what was done of what was possible"
+	@echo "  make measure SCENARIO=allergen   another customer: order (default), change, allergen, total"
+	@echo "  make measure TEMPERATURE=1.0   one run at another temperature than the profile's"
+	@echo "  make measure RUN=.run/measure/<time>-<customer>   count a saved run again, no model needed"
 	@echo "Check"
 	@echo "  make verify    make check, then make audit"
 	@echo "  make check     formatting, lint, types and offline tests (no network)"
@@ -93,6 +98,17 @@ RECORD ?=
 
 inspect:
 	@$(UV) run --locked python -m agent_observability.inspector $(VERB) $(RECORD)
+
+# Without RUN: record CHATS chats in each of 3 batches in $(RUN_DIR)/measure/<time>-<customer>/ (needs
+# the model, not the server: the tools run in the same process). TEMPERATURE replaces the
+# profile's for one run. With RUN: count that run again.
+SCENARIO ?= order
+CHATS    ?= 10
+RUN      ?=
+TEMPERATURE ?=
+
+measure:
+	@$(UV) run --locked python -m agent_observability.measure $(if $(RUN),read $(RUN),run $(SCENARIO) $(CHATS) $(TEMPERATURE))
 
 # make model and make server in the background, with logs and process IDs in $(RUN_DIR).
 # A part that already answers is left as it is. After a wait that was too short,
