@@ -78,7 +78,7 @@ Each part of the app is there because one of these questions needs it.
 flowchart LR
     C[Customer chat] --> H["Host (client.py)"]
     H <--> L[Model]
-    H <--> M[9 MCP tools]
+    H <--> M[10 MCP tools]
     M --> D[Carts and orders]
     M --> F[FAQ documents]
     D --> P[Delivery desk]
