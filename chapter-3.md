@@ -95,7 +95,9 @@ bottom needs a decision. Here is the `order` customer:
 The last column is the decision. A meal deal needs a pizza, a side and a drink.
 If turn 2 failed, turn 3 cannot succeed, and counting it charges one miss twice.
 
-At temperature 1.0 this decision mattered. Of 150 turns, 47 did
+At temperature 1.0 this decision mattered. (Temperature sets how freely the
+model picks its next word: near 0 it nearly always takes the likeliest word,
+at 1.0 it often takes another.) Of 150 turns, 47 did
 not make their events. But 25 of those 47 could not have: an earlier turn had
 failed. Counted without the decision, the agent missed 47 of 150. Counted with
 it, the agent missed 22 of the 125 turns where the action was possible.
@@ -118,7 +120,7 @@ Start the model with `make model`, as in the
 ```bash
 make measure                              # 3 batches of 10 new chats, then the count
 make measure SCENARIO=change              # another customer: order, change, allergen, total
-make measure TEMPERATURE=1.0             # one run at another temperature
+make measure TEMPERATURE=1.0              # one run at another temperature
 make measure RUN=.run/measure/<time>-<customer>   # count a saved run again, no model needed
 ```
 
@@ -145,8 +147,9 @@ batch3 chat09 turn 3  To apply a meal deal, I need to know which one you would l
 
 Shortened: the line that names the records folder, one line of advice and the
 line that each chat prints while it runs are left out. Conditions for every number in this chapter: Gemma 4 E4B (4-bit) on rapid-mlx
-1.1.0, top_p 0.95 and top_k 64 from the server's settings file, an M5 Pro
-with 24 GiB.
+1.1.0, top_p 0.95 and top_k 64 from the server's settings file (two more sampling settings that, like
+temperature, limit which words the model may pick), an M5 Pro
+with 24 GiB. Temperature 0.2, except where a row or run says 1.0.
 
 Read each cell as done out of possible: a cell like 4/9 would tell you that one
 turn was left out, because an earlier turn of that chat failed. The batches
@@ -174,18 +177,20 @@ These are our tests, each over 3 batches of new chats:
 | prompt: rewrite the rule on sides and drinks (text below) | `order`, all turns | missed 1, 4, 1: 6 of 296 | missed 2, 1, 2: 5 of 298 |
 | prompt: add one line (text below) | `change`, resize | done 0/10, 0/10, 0/10 | done 0/9, 0/8, 0/10 |
 | tool: one `change_pizza` tool instead of remove and add | `change`, resize | done 0/10, 0/10, 0/10 | **done 10/10, 10/10, 10/10** |
-| the prompt line or the tool, as above | `allergen`, swap | done 4, 1, 6 of 10 each: 11 of 30 | line: 5, 3, 2 (10); tool: 2, 2, 0 (4) |
+| the prompt line or the tool, as above | `allergen`, swap | done 4, 1, 6 of 10 each: 11 of 30 | line: 5, 3, 2 of 10 each: 10 of 30; tool: 2, 2, 0 of 10 each: 4 of 30 |
 
-Each row changed one thing; we call each side of a row an arm. The rule
+Each row changed one thing; we call each side of a row an arm. Every arm
+except the 1.0 side of the first row ran at temperature 0.2. The rule
 rewrite used 3 batches of 20 chats (`CHATS=20`) and an earlier delivery address in both
-arms; every other row 3 batches of 10. Only the temperature row ran with
+arms, which we replaced with a made-up one before publishing, so a rerun of
+that row is a new measurement with the current address; every other row 3 batches of 10. Only the temperature row ran with
 `change_pizza` in the app, as you have it, and reruns with
 `make measure TEMPERATURE=1.0` and `make measure`. All other rows ran before
 that tool existed: to rerun them, remove `change_pizza` from
 [items.py](src/agent_observability/pizza/tools/items.py) first, and for a prompt
 row edit [prompt.py](src/agent_observability/pizza/prompt.py).
 
-**Temperature was to blame for most misses.** Our first run sent no
+**Temperature was to blame for most misses of the `order` customer.** Our first run sent no
 temperature. rapid-mlx then takes the value in its own table of model
 settings, which says 1.0 for this model, a setting for open conversation; its
 code and configuration say so. Measured on
@@ -208,8 +213,8 @@ set_cart_item_quantity". The model knew the steps. It did not take them.
 
 **The tool shape was to blame for the resize.** Without `change_pizza`, a
 resize takes two calls: set the medium to 0, then add a large. In 30 chats the
-model never made both. In every one of them it made a single call: it set the
-quantity of the medium to 1, which changes nothing. In our sort of the misses (a worked example, see section 5), it claimed the
+model never made both. In every one of them, also those that asked or said it could not, it made a
+single call: it set the quantity of the medium to 1, which changes nothing. In our sort of the misses (a worked example, see section 5), it claimed the
 change 9 times, asked a question 14 times, said it could not 5 times, and
 answered otherwise twice.
 With one tool that changes the line in place, it resized in 30 of 30. A small
@@ -235,8 +240,8 @@ The record says that nothing happened. Only the reply says why.
 
 We sorted every missed edit turn of the lever tests, in this order: the record
 changed only partly, the reply says the edit is not possible, the reply claims
-an edit that the record does not show, or the reply asks the customer
-something. A rough word script made the first sort and one reader checked it.
+an edit that the record does not show, the reply asks the customer
+something, or the reply does something else. A rough word script made the first sort and one reader checked it.
 The script is not in the repository, so take these counts as a worked example,
 not as a number that you can rerun. There were no
 partial edits. Of the 30 missed resizes before the tool, 9 were claims, and
