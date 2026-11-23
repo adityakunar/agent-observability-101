@@ -1,12 +1,12 @@
 # Chapter 3: Measure it
 
-The customer has a medium Veggie Supreme in the cart and changes their mind.
+The customer has a medium Veggie Supreme and a Coke in the cart and changes their mind.
 
 > **Customer:** Actually, make the pizza a large.
 >
 > **Assistant:** I have updated the Veggie Supreme to a large. The current total is 13.48 EUR. …
 
-The cart still holds the medium, and 13.48 is the total with the medium. This is one
+The cart still holds the medium, and 13.48 is the total of the medium and the Coke. This is one
 chat with a small local model. Is it one chat in fifty, or every chat? And when
 you change the prompt or a tool to fix it, did the change help, or did the next
 chat just go better by chance?
@@ -181,14 +181,13 @@ These are our tests, each over 3 batches of new chats:
 
 Each row changed one thing; we call each side of a row an arm. Every arm
 except the 1.0 side of the first row ran at temperature 0.2. The rule
-rewrite used 3 batches of 20 chats (`CHATS=20`) and an earlier delivery address in both
-arms, which we replaced with a made-up one before publishing, so a rerun of
-that row is a new measurement with the current address; every other row 3 batches of 10. Only the temperature row ran with
-`change_pizza` in the app, as you have it, and reruns with
-`make measure TEMPERATURE=1.0` and `make measure`. All other rows ran before
-that tool existed: to rerun them, remove `change_pizza` from
+rewrite used 3 batches of 20 chats (`CHATS=20`) and a different delivery address in both
+arms, so a rerun of that row is a new measurement with the current address; every other row 3 batches of 10. The temperature row and the tool arms ran with
+`change_pizza` in the app, as you have it; the temperature row reruns with
+`make measure TEMPERATURE=1.0` and `make measure`. The other Before arms and the
+prompt arms ran before that tool existed: to rerun them, remove `change_pizza` from
 [items.py](src/agent_observability/pizza/tools/items.py) first, and for a prompt
-row edit [prompt.py](src/agent_observability/pizza/prompt.py).
+arm edit [prompt.py](src/agent_observability/pizza/prompt.py).
 
 **Temperature was to blame for most misses of the `order` customer.** Our first run sent no
 temperature. rapid-mlx then takes the value in its own table of model
