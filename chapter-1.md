@@ -26,7 +26,8 @@ pizza with celery.
 The shop is a demo and the menu is made up. The failure is not: a real shop
 with this agent delivers that pizza to that customer.
 
-This is not a rare accident. In 30 recorded chats with these two messages, 14
+This is not a rare accident. In 30 recorded chats with these two messages (nine tools, at a
+temperature that was not recorded; [Chapter 2](chapter-2.md) has the conditions), 14
 replies said that a change was made when the cart was the same, 11 chats made
 the swap, and 5 offered the swap and asked first. The share moved between
 batches of ten, and yours will differ:
@@ -95,7 +96,7 @@ flowchart LR
 | **rapid-mlx** | a local model server for Apple silicon Macs |
 | **TTFT** | time to first token: the time until the first output of the model arrives |
 
-The model can ask for nine tools. Each tool is an ordinary Python function in
+The model can ask for ten tools. Each tool is an ordinary Python function in
 [pizza/tools/](src/agent_observability/pizza/tools/) or
 [faq/server.py](src/agent_observability/faq/server.py).
 
@@ -106,6 +107,7 @@ The model can ask for nine tools. Each tool is an ordinary Python function in
 | `add_extra` | adds a side, a drink or a dessert | yes |
 | `view_cart` | returns the cart lines and the totals | no |
 | `set_cart_item_quantity` | sets the quantity of a cart line; 0 removes the line | yes |
+| `change_pizza` | changes the pizza, size or crust of a cart line; see [Chapter 3](chapter-3.md) | yes |
 | `apply_deal` | applies the meal deal if the cart has a pizza, a side and a drink | yes |
 | `set_delivery_address` | saves the address in the customer's own words | yes |
 | `confirm_order` | turns the cart into an order | yes |
@@ -307,7 +309,7 @@ than one line. Each number has a limit that you must know before you compare it.
 
 | Number | What it is | What it is not |
 |---|---|---|
-| **context** | the prompt tokens that the server counted: the system prompt, the nine tool definitions and the full conversation, sent again with each request | the size of the last message |
+| **context** | the prompt tokens that the server counted: the system prompt, the tool definitions and the full conversation, sent again with each request | the size of the last message |
 | **TTFT** | the time from the start of the request to the first output that the chat received; the output can be a tool call | the time until the customer sees an answer |
 | **total** | the time for the full model request | the time for the turn; tool calls are not included |
 | **output tok/s** | the output tokens divided by the total time, with the wait at the start included | the speed of generation alone |
@@ -318,7 +320,7 @@ code is in [llm/metrics.py](src/agent_observability/llm/metrics.py) and
 [llm/memory.py](src/agent_observability/llm/memory.py).
 
 Watch **context** grow turn by turn. Each tool definition and each tool result
-is sent again with each request. This is one reason the app has nine tools and
+is sent again with each request. This is one reason the app has ten tools and
 not more: each added tool definition is part of the context of every request.
 
 When you compare two runs, write down the conditions: the model and its

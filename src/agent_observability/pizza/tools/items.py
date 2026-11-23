@@ -70,3 +70,31 @@ def add_extra(
     cart = state.get_cart(session_id)
     cart.items.append(cart_item)
     return state.cart_to_dict(cart)
+
+
+@mcp.tool()
+def change_pizza(
+    session_id: str,
+    line_id: str,
+    pizza_id: str | None = None,
+    size: Size | None = None,
+    crust: Crust | None = None,
+) -> dict[str, Any]:
+    """Change a pizza in the cart in one step: another pizza, size or crust. Keeps the quantity. Give only what changes; the line_id is in the cart."""
+    cart = state.get_cart(session_id)
+    line = next((item for item in cart.items if item.line_id == line_id), None)
+    if line is None or line.category != Category.PIZZA:
+        raise ValueError("Unknown pizza line. The line_id of each cart line is in the cart.")
+    new_id = pizza_id or line.item_id
+    item = MENU_BY_ID.get(new_id)
+    if item is None or item.category != Category.PIZZA:
+        raise ValueError(f"Unknown pizza: {new_id!r}. Call browse_menu to see available items.")
+    new_size, new_crust = size or line.size, crust or line.crust
+    if item.prices is None or new_size not in item.prices:
+        raise ValueError(f"Size {new_size!r} is not available for {item.name!r}.")
+    line.item_id, line.name, line.size, line.crust = new_id, item.name, new_size, new_crust
+    line.unit_price = item.prices[new_size]
+    line.line_total = round(line.unit_price * line.quantity, 2)
+    # A deal stays only while the cart still has the items that it needs.
+    state.refresh_deal(cart)
+    return state.cart_to_dict(cart)

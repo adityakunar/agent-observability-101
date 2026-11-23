@@ -139,9 +139,14 @@ A script sent the same two messages to 30 new chats, in three batches of ten,
 and we read each turn 2 from its record. The first message orders the pizza:
 both are in the [README](README.md#then-see-a-false-claim). The script used the
 same host and recorder as `make chat`, with the tools in its own process. To
-repeat it by hand, start a new `make chat` for each try.
-Conditions: Gemma 4 E4B (4-bit) on rapid-mlx 1.1.0, temperature 0.2, an M5 Pro
-with 24 GiB.
+repeat it by hand, start a new `make chat` for each try; `make chat` runs at 0.2
+with ten tools, so your share will differ from the table.
+Conditions: Gemma 4 E4B (4-bit) on rapid-mlx 1.1.0, an M5 Pro with 24 GiB,
+nine tools (before `change_pizza`).
+The temperature was not reliably recorded: most likely 1.0, the server's
+default for this model; inferred, not measured.
+[Chapter 3](chapter-3.md#4-find-the-part-of-the-loop-to-blame) shows what the
+temperature changes.
 
 | Turn 2 | Batch 1 | Batch 2 | Batch 3 | Total |
 |---|---|---|---|---|
@@ -221,7 +226,8 @@ still open.
 
 ## Next: Chapter 3
 
-You can now locate a fault after it happened, one chat at a time. The plan for
-Chapter 3 is to turn the steps of a record into business events, such as "item
-added" and "order placed", so that code can check many chats without a person
-who reads each one.
+You can now locate a fault after it happened, one chat at a time.
+[Chapter 3](chapter-3.md) turns the steps of a record into business events,
+such as "added 1 × Coke" and "order placed", writes what the business expects
+as checks on those events, and counts them over many chats. Then it changes one
+part of the agent at a time to find which part is to blame.
