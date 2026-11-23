@@ -252,7 +252,7 @@ sequenceDiagram
 ```
 
 The rule is in the tool, so no wording from the model can place the order. Give
-an address, for example `Damrak 1, 1012 LG Amsterdam`. The tool saves your words
+an address, for example `Example Street 1, 1000 AB Testville` (made up). The tool saves your words
 as they are; it does not check that the address exists. Approve the order. The
 confirmed order appears in **Orders**, and the total is €20.96. If the assistant
 places the order before you approve, you have found a fault that we left in:

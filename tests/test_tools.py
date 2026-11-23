@@ -30,9 +30,10 @@ async def test_full_order_with_deal_delivery_fee_and_faq():
             "apply_deal", {"session_id": "order", "deal_id": "meal_deal_standard"}
         )
         quote = await client.call_tool(
-            "set_delivery_address", {"session_id": "order", "address": "Damrak 1, Amsterdam"}
+            "set_delivery_address",
+            {"session_id": "order", "address": "Example Street 1, Testville"},
         )
-        assert quote.data["address"] == "Damrak 1, Amsterdam"
+        assert quote.data["address"] == "Example Street 1, Testville"
         assert quote.data["delivery_fee"] == 1.99
         facts = await client.call_tool("faq_read", {"filename": "allergen_info.md"})
         assert "garlic" in facts.data.lower()
@@ -72,21 +73,23 @@ async def test_address_is_saved_as_the_customer_gave_it_and_can_be_replaced():
             await client.call_tool("set_delivery_address", {"session_id": "cart", "address": "  "})
         assert not state.sessions
         await client.call_tool(
-            "set_delivery_address", {"session_id": "cart", "address": "  Damrak 1,   Amsterdam "}
+            "set_delivery_address",
+            {"session_id": "cart", "address": "  Example Street 1,   Testville "},
         )
-        assert state.sessions["cart"].delivery_address == "Damrak 1, Amsterdam"
+        assert state.sessions["cart"].delivery_address == "Example Street 1, Testville"
         quote = (
             await client.call_tool(
-                "set_delivery_address", {"session_id": "cart", "address": "Rokin 75, Amsterdam"}
+                "set_delivery_address",
+                {"session_id": "cart", "address": "Sample Road 2, Testville"},
             )
         ).data
     assert quote == {
-        "address": "Rokin 75, Amsterdam",
+        "address": "Sample Road 2, Testville",
         "delivery_fee": 1.99,
         "estimated_minutes": "30-40",
         "currency": "EUR",
     }
-    assert state.sessions["cart"].delivery_address == "Rokin 75, Amsterdam"
+    assert state.sessions["cart"].delivery_address == "Sample Road 2, Testville"
     assert not state.orders
 
 

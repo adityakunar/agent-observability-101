@@ -99,12 +99,13 @@ async def test_operator_quote_and_confirmed_order_match_saved_business_state():
         snapshot = get_operator_snapshot()
         assert snapshot["active_carts"][0]["check"] == "Delivery address needed"
         await client.call_tool(
-            "set_delivery_address", {"session_id": "dinner", "address": "Damrak 1, Amsterdam"}
+            "set_delivery_address",
+            {"session_id": "dinner", "address": "Example Street 1, Testville"},
         )
         ready = get_operator_snapshot()["active_carts"][0]
         assert ready["check"] == "Ready to review" and ready["delivery_ready"]
         assert ready["grand_total"] == "€16.98" and ready["delivery_fee"] == "€1.99"
-        assert ready["address"] == "Damrak 1, Amsterdam"
+        assert ready["address"] == "Example Street 1, Testville"
         confirmed = (await client.call_tool("confirm_order", {"session_id": "dinner"})).data
         final = get_operator_snapshot()
         assert not final["active_carts"]

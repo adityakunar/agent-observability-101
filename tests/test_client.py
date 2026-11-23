@@ -54,7 +54,7 @@ async def test_customer_recovers_and_model_cannot_redirect_session():
                     ToolCall(
                         "3",
                         "set_delivery_address",
-                        {"session_id": "someone-else", "address": "Damrak 1, Amsterdam"},
+                        {"session_id": "someone-else", "address": "Example Street 1, Testville"},
                     )
                 ]
             ),
@@ -75,15 +75,15 @@ async def test_customer_recovers_and_model_cannot_redirect_session():
         assert not state.orders
         assert set(state.sessions) == {agent.session_id}
         assert "Rejected:" in model.requests[2][0][-1]["content"]
-        await agent.send("Damrak 1, Amsterdam")
+        await agent.send("Example Street 1, Testville")
         assert not state.orders
         quote = json.loads(model.requests[4][0][-1]["content"])
-        assert quote["address"] == "Damrak 1, Amsterdam" and quote["delivery_fee"] == 1.99
+        assert quote["address"] == "Example Street 1, Testville" and quote["delivery_fee"] == 1.99
         assert set(state.sessions) == {agent.session_id}
         await agent.send("Yes, confirm.")
     [order] = state.orders.values()
     assert order.session_id == agent.session_id
-    assert order.cart.delivery_address == "Damrak 1, Amsterdam"
+    assert order.cart.delivery_address == "Example Street 1, Testville"
 
 
 @pytest.mark.parametrize("allowed_tools", [None, {"browse_menu"}])

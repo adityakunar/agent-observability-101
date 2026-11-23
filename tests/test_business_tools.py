@@ -92,7 +92,8 @@ async def test_each_chat_has_its_own_cart_and_its_own_order():
                 {"session_id": session, "pizza_id": "pepperoni", "size": size, "crust": "thin"},
             )
             await client.call_tool(
-                "set_delivery_address", {"session_id": session, "address": "Damrak 1, Amsterdam"}
+                "set_delivery_address",
+                {"session_id": session, "address": "Example Street 1, Testville"},
             )
         mine = (await client.call_tool("confirm_order", {"session_id": "mine"})).data
         # The order of one chat does not change the cart of a different chat.
