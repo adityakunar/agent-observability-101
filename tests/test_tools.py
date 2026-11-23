@@ -100,7 +100,7 @@ async def test_rejected_item_and_quantity_preserve_cart():
     assert state.sessions["cart"].model_dump() == original
 
 
-async def test_the_catalog_is_nine_tools_and_reading_the_cart_creates_no_business_state():
+async def test_the_catalog_is_ten_tools_and_reading_the_cart_creates_no_business_state():
     async with Client(server.mcp) as client:
         tools = {tool.name: tool for tool in await client.list_tools()}
         assert set(tools) == {
@@ -109,6 +109,7 @@ async def test_the_catalog_is_nine_tools_and_reading_the_cart_creates_no_busines
             "add_extra",
             "view_cart",
             "set_cart_item_quantity",
+            "change_pizza",
             "apply_deal",
             "set_delivery_address",
             "confirm_order",
@@ -124,6 +125,50 @@ async def test_the_catalog_is_nine_tools_and_reading_the_cart_creates_no_busines
         cart = (await client.call_tool("view_cart", {"session_id": "new"})).data
         assert cart["items"] == [] and cart["total"] == 0
     assert not state.sessions and not state.orders
+
+
+async def test_change_pizza_changes_one_line_in_place_and_keeps_its_quantity():
+    async with Client(server.mcp) as client:
+        cart = (
+            await client.call_tool(
+                "customize_and_add",
+                {
+                    "session_id": "edit",
+                    "pizza_id": "veggie_supreme",
+                    "size": "medium",
+                    "crust": "original",
+                    "quantity": 2,
+                },
+            )
+        ).data
+        line_id = cart["items"][0]["line_id"]
+        cart = (
+            await client.call_tool(
+                "change_pizza", {"session_id": "edit", "line_id": line_id, "size": "large"}
+            )
+        ).data
+        (line,) = cart["items"]
+        assert (line["line_id"], line["size"], line["crust"], line["quantity"]) == (
+            line_id,
+            "large",
+            "original",
+            2,
+        )
+        cart = (
+            await client.call_tool(
+                "change_pizza",
+                {"session_id": "edit", "line_id": line_id, "pizza_id": "margherita"},
+            )
+        ).data
+        assert cart["items"][0]["name"] == "Margherita" and cart["items"][0]["size"] == "large"
+        original = state.sessions["edit"].model_dump()
+        with pytest.raises(ToolError, match="Unknown pizza"):
+            await client.call_tool(
+                "change_pizza", {"session_id": "edit", "line_id": line_id, "pizza_id": "coke"}
+            )
+        with pytest.raises(ToolError, match="Unknown pizza line"):
+            await client.call_tool("change_pizza", {"session_id": "edit", "line_id": "nope"})
+    assert state.sessions["edit"].model_dump() == original
 
 
 async def test_faq_retrieval_and_path_boundary(tmp_path, monkeypatch):

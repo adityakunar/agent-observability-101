@@ -320,7 +320,7 @@ src/agent_observability/
 ```
 
 Start with `chat.py` and follow the calls. The model gets the definitions of
-all nine tools with each request. Menu data and FAQ text enter the conversation
+all ten tools with each request. Menu data and FAQ text enter the conversation
 only through tool results.
 
 The menu records, the desk styling and the screenshot are in [resources/](resources/).
