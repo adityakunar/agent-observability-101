@@ -4,7 +4,7 @@ The assistant says the order is placed. Did it happen?
 
 ![A comic strip: a cook takes a pizza from the oven, hands the box to a courier, and the courier cycles along an Amsterdam canal.](resources/prefab/lantern-strip.jpg)
 
-A fluent reply does not prove an action. This chapter builds a small local AI
+A fluent reply does not prove an action. This series builds a small local AI
 assistant and shows you three things apart: what the assistant **said**, which
 tools the host **ran**, and which business records **changed**.
 
@@ -14,20 +14,20 @@ which reads the same records that the tools change.
 
 ![A confirmed order on the delivery desk, with the address, the deal saving and the total.](resources/screenshots/confirmed-order.jpg)
 
-What you take away:
+The chapters, each with its own Git tag:
 
-- **One idea:** compare what was said, what was done and what changed.
-- **One file to copy:** [client.py](src/agent_observability/client.py), the loop
-  between the model and the tools.
-- **One test with no model:** [tests/test_sushi_pizza.py](tests/test_sushi_pizza.py).
-- **One list:** [Use this in your project](chapter-1.md#use-this-in-your-project).
+| Chapter | What you do | Start from |
+|---|---|---|
+| [Chapter 1](chapter-1.md) | compare what was said, what was done and what changed, one chat at a time | [client.py](src/agent_observability/client.py), the loop between the model and the tools |
+| [Chapter 2](chapter-2.md) | record each step of a chat and find the one where a false answer went wrong | `make inspect` |
+| [Chapter 3](chapter-3.md) | count how often the assistant does what it is asked, and find which part to blame | `make measure` |
 
-[Chapter 1](chapter-1.md) is the chapter described above. [Chapter 2](chapter-2.md) records each
-step of a chat and finds the one where a false answer went wrong.
-[Chapter 3](chapter-3.md) counts how often the assistant does what it is asked. This page
-gets you started. It is for
-Python developers and data scientists who know functions, dictionaries and basic
-HTTP.
+Each chapter ends with a list to use in your own project. Two deep-dishes go
+further into Chapter 1: [when the model replies with nothing](deep-dish/fallback/)
+and [why a "4B" model needs 5 GB](deep-dish/gemma-4-e4b/).
+
+This page gets you started. It is for Python developers and data scientists
+who know functions, dictionaries and basic HTTP.
 
 | Word | Meaning here |
 |---|---|
