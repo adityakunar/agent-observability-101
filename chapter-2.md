@@ -221,7 +221,8 @@ still open.
 
 ## Next: Chapter 3
 
-You can now locate a fault after it happened, one chat at a time. The plan for
-Chapter 3 is to turn the steps of a record into business events, such as "item
-added" and "order placed", so that code can check many chats without a person
-who reads each one.
+You can now locate a fault after it happened, one chat at a time.
+[Chapter 3](chapter-3.md) turns the steps of a record into business events,
+such as "added 1 × Coke" and "order placed", writes what the business expects
+as checks on those events, and counts them over many chats. Then it changes one
+part of the agent at a time to find which part is to blame.

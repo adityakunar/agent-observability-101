@@ -23,7 +23,8 @@ What you take away:
 - **One list:** [Use this in your project](chapter-1.md#use-this-in-your-project).
 
 [Chapter 1](chapter-1.md) is the chapter described above. [Chapter 2](chapter-2.md) records each
-step of a chat and finds the one where a false answer went wrong. This page
+step of a chat and finds the one where a false answer went wrong.
+[Chapter 3](chapter-3.md) counts how often the assistant does what it is asked. This page
 gets you started. It is for
 Python developers and data scientists who know functions, dictionaries and basic
 HTTP.
@@ -293,6 +294,15 @@ that the record holds what the model received. [Chapter 2](chapter-2.md)
 explains the output. A record holds the full conversation, so Git ignores the
 folder.
 
+### Then measure many chats
+
+```bash
+make measure   # 3 batches of 10 scripted chats, then what was done of what was possible
+```
+
+It needs the model, not the server. [Chapter 3](chapter-3.md) explains the
+count and the conditions that it prints.
+
 Nothing is charged or delivered: this is a demo. The records are in memory and
 are gone when the server stops. A real model can take a different path from the
 one above. That is why you look at the records.
@@ -308,6 +318,8 @@ src/agent_observability/
 ├── client.py            the host: the bounded model → tools → model loop (Agent)
 ├── record.py            the record of a chat: three layers for each step (Chapter 2)
 ├── inspector.py         reads a record and finds the step where layers disagree
+├── events.py            the business events of each turn of a record (Chapter 3)
+├── measure.py           scripted chats in batches: done of possible (make measure)
 ├── llm/                 the Model contract, the stream reader and the metrics of a request
 ├── pizza/
 │   ├── domain.py        the records: menu items, carts, orders
@@ -332,9 +344,9 @@ it saves a conversation only in the local record of its chat.
 
 ## What comes next
 
-The plan for Chapter 3 is to turn the steps of a record into business events.
-Later chapters check the events with code, and use a second model as a judge
-for what the assistant said.
+The plan for Chapter 4 is to catch a false claim while the chat runs: a check
+in the host that compares what the assistant says with the events of the turn. Later chapters use a second
+model as a judge for what the assistant said.
 
 Each released chapter keeps its own Git tag.
 
