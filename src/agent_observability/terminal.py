@@ -22,6 +22,13 @@ class Console:
             self.line_open = False
         print(f"tool> {name}", flush=True)
 
+    def host(self, message: str) -> None:
+        """A decision of the host that the customer should see, such as a caught claim."""
+        if self.line_open:
+            print()
+            self.line_open = False
+        print(f"host> {message}", flush=True)
+
     def metrics(self, values: Measurements) -> None:
         if self.line_open:
             print()
@@ -53,6 +60,11 @@ class Console:
             notes.append(f"suppressed {turn.duplicates} repeated business action(s)")
         if turn.reasks:
             notes.append("the model said nothing; the host asked again")
+        if turn.caught:
+            notes.append(
+                "the host caught a claim with no change in the record"
+                + ("; it stayed, so the customer read a note" if turn.warned else "")
+            )
         if turn.fallback:
             notes.append("the reply above is from the host, not from the model")
         if notes:

@@ -21,6 +21,7 @@ from uuid import uuid4
 from fastmcp import Client
 from fastmcp.exceptions import ToolError
 
+from agent_observability.catch import CORRECTION, NOTE, claims
 from agent_observability.model import Model, ModelError, Reply, TextCallback, ToolCall
 from agent_observability.record import Recorder, Step
 
@@ -44,6 +45,8 @@ class Turn:
     duplicates: int = 0  # repeated business actions that the host did not run again
     reasks: int = 0  # silent replies that the host asked again, with a cue to speak
     fallback: bool = False  # the host wrote the answer, because the model gave none
+    caught: bool = False  # the host caught a claim that the record does not back (catch.py)
+    warned: bool = False  # the claim stayed after the correction; the customer reads a note
     error: str | None = None  # the error text, if a model request failed
 
 
@@ -58,6 +61,7 @@ class Agent:
         max_tool_iterations: int = 12,
         max_tool_calls: int = 16,
         recorder: Recorder | None = None,
+        catch_claims: bool = True,
     ) -> None:
         if max_tool_iterations < 1 or max_tool_calls < 1:
             raise ValueError("Model-step and tool-call budgets must be positive.")
@@ -68,6 +72,7 @@ class Agent:
         self.allowed_tools = allowed_tools
         self.max_tool_iterations = max_tool_iterations  # model requests for each customer message
         self.max_tool_calls = max_tool_calls  # tool calls for each customer message
+        self.catch_claims = catch_claims  # check each answer against the record (catch.py)
         self.messages: list[dict[str, Any]] = [{"role": "system", "content": prompt}]
         self.tools: list[dict[str, Any]] = []  # the catalog in the shape of the model API
         self.available: dict[str, dict[str, Any]] = {}  # the same catalog, by tool name
@@ -111,21 +116,23 @@ class Agent:
         *,
         on_text: TextCallback | None = None,
         on_tool: Callable[[str], None] | None = None,
+        on_host: Callable[[str], None] | None = None,
     ) -> Turn:
         """Run one customer message: ask the model, run its tool requests, ask again."""
         self.messages.append({"role": "user", "content": text})
         turn = Turn("")
         completed: dict[str, str] = {}  # business actions done in this turn, with their results
         dispatched = 0  # tool calls made in this turn
-        cue = False  # add the cue to the next model request
+        extra: list[dict[str, Any]] = []  # host messages for the next request only
         await self.recorder.begin_turn(text)
         try:
             for _ in range(self.max_tool_iterations):
                 advertised = {tool["function"]["name"] for tool in self.tools}
-                # After a silent reply, the next request carries the cue. The cue goes on
-                # a copy, so it does not stay in the conversation.
-                request = [*self.messages, CUE] if cue else self.messages
-                cue = False
+                # After a silent reply, the next request carries the cue; after a caught
+                # claim, the claim and the correction. They go on a copy, so they do not
+                # stay in the conversation.
+                request = [*self.messages, *extra] if extra else self.messages
+                extra = []
                 reply = await self.model.complete(request, self.tools, on_text=on_text)
                 step = self.recorder.begin_step(request, reply)
                 text = reply.text or ""
@@ -135,7 +142,7 @@ class Agent:
                     # each customer message; a second silence gets the host's answer.
                     if not turn.reasks:
                         turn.reasks += 1
-                        cue = True
+                        extra = [CUE]
                         step["host"].append({"decision": "asked again"})
                         await self.recorder.end_step(step)
                         continue
@@ -150,7 +157,28 @@ class Agent:
                     return turn
                 prepared = self._record_reply(reply, turn)
                 if not prepared:
-                    # No tool requests: the model's text is the answer.
+                    # No tool requests: the model's text is the answer. Unless it reports
+                    # an action, and the record did not change in this turn.
+                    if self.catch_claims and claims(text) and self.recorder.unchanged_turn():
+                        if not turn.caught:
+                            # Once: take the claim out of the history and ask again, with
+                            # the claim and the correction on a copy.
+                            turn.caught = True
+                            extra = [self.messages.pop(), CORRECTION]
+                            step["host"].append({"decision": "caught claim"})
+                            await self.recorder.end_step(step)
+                            if on_host:
+                                on_host(
+                                    "the answer reports a change; the record has none. Asked again."
+                                )
+                            continue
+                        # The same again: the customer reads the note. The history keeps
+                        # only the model's own words.
+                        turn.warned = True
+                        text += NOTE
+                        step["host"].append({"decision": "warned", "result": NOTE.strip()})
+                        if on_text:
+                            on_text(NOTE)
                     turn.text = text
                     await self.recorder.end_step(step)
                     return turn
