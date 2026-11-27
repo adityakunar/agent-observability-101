@@ -8,22 +8,16 @@ With no file, it reads the newest record in .run/records/.
 
 import asyncio
 import json
-import re
 import sys
 from pathlib import Path
 from typing import Any
 
+from agent_observability.catch import CLAIM_WORDS
 from agent_observability.config import llm_api_key, settings
 from agent_observability.model import APIModel, ModelError
 from agent_observability.record import Step, load
 
 RECORDS = Path(".run/records")
-# Words that report a finished business action. check() uses them only when the record
-# did not change in the whole turn. It cannot judge a sentence: it tells you which one to
-# read. Whole words only: "placed" must not match inside "replaced".
-ACTION_WORDS = re.compile(
-    r"\b(added|removed|replaced|swapped|cancelled|applied|saved|placed|confirmed)\b", re.I
-)
 
 
 def changes(step: Step) -> list[str]:
@@ -63,11 +57,12 @@ def findings(session: dict[str, Any], steps: list[Step]) -> list[str]:
                 f"{where}  host/record  ran {', '.join(business)}; the record did not change"
             )
     # Words and record disagree: the answer reports an action, and the record is the
-    # same as before the customer's message.
+    # same as before the customer's message. The words cannot judge a sentence: they
+    # tell you which one to read.
     for turn in sorted({step["turn"] for step in steps}):
         of_turn = [step for step in steps if step["turn"] == turn]
         last = of_turn[-1]
-        words = sorted({w.lower() for w in ACTION_WORDS.findall(last["model"]["text"] or "")})
+        words = sorted({w.lower() for w in CLAIM_WORDS.findall(last["model"]["text"] or "")})
         if words and of_turn[0]["record"]["before"] == last["record"]["after"]:
             said = ", ".join(words)
             found.append(
