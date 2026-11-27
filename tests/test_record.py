@@ -106,12 +106,16 @@ async def test_a_call_that_changes_nothing_is_found(tmp_path):
     session, steps = await chat(
         tmp_path / "chat.jsonl",
         [
-            Reply(tool_calls=[ToolCall("1", "set_delivery_address", {"address": "Damrak 1"})]),
+            Reply(
+                tool_calls=[ToolCall("1", "set_delivery_address", {"address": "Example Street 1"})]
+            ),
             Reply("Saved."),
-            Reply(tool_calls=[ToolCall("2", "set_delivery_address", {"address": "Damrak 1"})]),
+            Reply(
+                tool_calls=[ToolCall("2", "set_delivery_address", {"address": "Example Street 1"})]
+            ),
             Reply("Done."),
         ],
-        ["Deliver to Damrak 1.", "Deliver to Damrak 1."],
+        ["Deliver to Example Street 1.", "Deliver to Example Street 1."],
     )
     found = findings(session, steps)
     assert any(f.startswith("turn 2 step 1  host/record") for f in found)

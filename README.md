@@ -4,7 +4,7 @@ The assistant says the order is placed. Did it happen?
 
 ![A comic strip: a cook takes a pizza from the oven, hands the box to a courier, and the courier cycles along an Amsterdam canal.](resources/prefab/lantern-strip.jpg)
 
-A fluent reply does not prove an action. This chapter builds a small local AI
+A fluent reply does not prove an action. This series builds a small local AI
 assistant and shows you three things apart: what the assistant **said**, which
 tools the host **ran**, and which business records **changed**.
 
@@ -14,20 +14,20 @@ which reads the same records that the tools change.
 
 ![A confirmed order on the delivery desk, with the address, the deal saving and the total.](resources/screenshots/confirmed-order.jpg)
 
-What you take away:
+The chapters, each with its own Git tag:
 
-- **One idea:** compare what was said, what was done and what changed.
-- **One file to copy:** [client.py](src/agent_observability/client.py), the loop
-  between the model and the tools.
-- **One test with no model:** [tests/test_sushi_pizza.py](tests/test_sushi_pizza.py).
-- **One list:** [Use this in your project](chapter-1.md#use-this-in-your-project).
+| Chapter | What you do | Start from |
+|---|---|---|
+| [Chapter 1](chapter-1.md) | compare what was said, what was done and what changed, one chat at a time | [client.py](src/agent_observability/client.py), the loop between the model and the tools |
+| [Chapter 2](chapter-2.md) | record each step of a chat and find the one where a false answer went wrong | `make inspect` |
+| [Chapter 3](chapter-3.md) | count how often the assistant does what it is asked, and find which part to blame | `make measure` |
 
-[Chapter 1](chapter-1.md) is the chapter described above. [Chapter 2](chapter-2.md) records each
-step of a chat and finds the one where a false answer went wrong.
-[Chapter 3](chapter-3.md) counts how often the assistant does what it is asked. This page
-gets you started. It is for
-Python developers and data scientists who know functions, dictionaries and basic
-HTTP.
+Each chapter ends with a list to use in your own project. Two deep-dishes go
+further into Chapter 1: [when the model replies with nothing](deep-dish/fallback/)
+and [why a "4B" model needs 5 GB](deep-dish/gemma-4-e4b/).
+
+This page gets you started. It is for Python developers and data scientists
+who know functions, dictionaries and basic HTTP.
 
 | Word | Meaning here |
 |---|---|
@@ -84,7 +84,7 @@ terminal 2 have started. On the first run that takes a while, and a chat that
 starts too early reports that it cannot reach them. Press Ctrl+C in a terminal to
 stop that part.
 
-Versions are pinned: **Prefab (`prefab-ui`) 0.21.1**, **FastMCP 4.1.4**,
+Versions are pinned: **Prefab (`prefab-ui`) 0.21.1**, **FastMCP 4.1.6**,
 **rapid-mlx 1.1.0**, **uv 0.13.6** and **Python 3.14.4** (selected by
 [.python-version](.python-version); uv installs it if needed, and the package
 accepts Python 3.11 or newer). [uv.lock](uv.lock) fixes the rest, including
@@ -252,7 +252,7 @@ sequenceDiagram
 ```
 
 The rule is in the tool, so no wording from the model can place the order. Give
-an address, for example `Damrak 1, 1012 LG Amsterdam`. The tool saves your words
+an address, for example `Example Street 1, 1000 AB Testville` (made up). The tool saves your words
 as they are; it does not check that the address exists. Approve the order. The
 confirmed order appears in **Orders**, and the total is €20.96. If the assistant
 places the order before you approve, you have found a fault that we left in:
@@ -339,8 +339,9 @@ The menu records, the desk styling and the screenshot are in [resources/](resour
 
 The offline tests use the real MCP tools and a model that answers from a script.
 They check the business rules and the rules of the host. They do not measure how
-reliable a model is. The repository has no trace export and no evaluation, and
-it saves a conversation only in the local record of its chat.
+reliable a model is: `make measure` does that, over scripted chats with the model.
+The repository has no trace export and no model that grades the replies, and it
+keeps conversations only in local records.
 
 ## What comes next
 

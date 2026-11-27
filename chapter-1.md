@@ -78,7 +78,7 @@ Each part of the app is there because one of these questions needs it.
 flowchart LR
     C[Customer chat] --> H["Host (client.py)"]
     H <--> L[Model]
-    H <--> M[9 MCP tools]
+    H <--> M[10 MCP tools]
     M --> D[Carts and orders]
     M --> F[FAQ documents]
     D --> P[Delivery desk]
@@ -203,7 +203,7 @@ delivery desk after each message.
 4. *Confirm my order.* There is no address, so no order is placed and the cart
    does not change. The model asks for the address. If it calls `confirm_order`
    first, the tool refuses and the model reads the refusal.
-5. *Damrak 1, 1012 LG Amsterdam.* Then approve the order. Delivery adds €1.99,
+5. *Example Street 1, 1000 AB Testville.* The address is made up. Then approve the order. Delivery adds €1.99,
    and the total is €20.96. Sometimes the assistant places the order before you
    approve: see [What is still broken](#what-is-still-broken).
 
