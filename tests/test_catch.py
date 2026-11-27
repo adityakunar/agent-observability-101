@@ -10,7 +10,7 @@ import copy
 
 from fastmcp import Client
 
-from agent_observability.catch import CORRECTION, NOTE, claims
+from agent_observability.catch import CORRECTION, NOTE, claims, false_claim
 from agent_observability.chat import PROMPT
 from agent_observability.client import Agent
 from agent_observability.model import Reply, ToolCall
@@ -109,3 +109,9 @@ def test_the_words_point_at_a_sentence_they_cannot_judge_it():
     assert not claims("Would you like me to swap it?")
     # A false alarm: a refusal with an action word. The extra step makes it cheap.
     assert claims("I cannot change the size once it has been added to the cart.")
+
+
+def test_the_events_decide_whether_a_claim_is_false():
+    assert false_claim(CLAIM, [])
+    assert not false_claim(CLAIM, ["added 1 × Margherita, Personal · Thin crust"])
+    assert not false_claim("Shall I swap it?", [])

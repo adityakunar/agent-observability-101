@@ -1,8 +1,10 @@
-"""Catch a claim that the record does not back, while the chat runs.
+"""Catch a claim that the record does not back.
 
 A claim is a reply that reports a finished business action ("I have swapped your
-pizza"). The host believes the record, not the words: when the reply holds an action
-word and the business record did not change in the whole turn, the claim is false.
+pizza"). The record decides, not the words: a claim in a turn with no business event
+(events.py) is false. One definition, three readers: the host checks each answer while
+the chat runs (client.py), make measure counts the claims in many chats (measure.py),
+and make inspect points at them in one chat (inspector.py).
 
 The words only point at a sentence. A refusal such as "I cannot change it once it has
 been added" holds one too. So the host does not punish a catch: it gives the model one
@@ -37,3 +39,8 @@ NOTE = "\n\nShop check: your cart did not change in this turn. Please check it b
 def claims(text: str) -> bool:
     """Whether the text reports a finished business action."""
     return bool(CLAIM_WORDS.search(text))
+
+
+def false_claim(answer: str, events: list[str]) -> bool:
+    """Whether the answer reports an action, and its turn made no business event."""
+    return not events and claims(answer)

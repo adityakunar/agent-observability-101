@@ -12,8 +12,9 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from agent_observability.catch import CLAIM_WORDS
+from agent_observability.catch import CLAIM_WORDS, false_claim
 from agent_observability.config import llm_api_key, settings
+from agent_observability.events import by_turn
 from agent_observability.model import APIModel, ModelError
 from agent_observability.record import Step, load
 
@@ -56,15 +57,14 @@ def findings(session: dict[str, Any], steps: list[Step]) -> list[str]:
             found.append(
                 f"{where}  host/record  ran {', '.join(business)}; the record did not change"
             )
-    # Words and record disagree: the answer reports an action, and the record is the
-    # same as before the customer's message. The words cannot judge a sentence: they
-    # tell you which one to read.
-    for turn in sorted({step["turn"] for step in steps}):
-        of_turn = [step for step in steps if step["turn"] == turn]
-        last = of_turn[-1]
-        words = sorted({w.lower() for w in CLAIM_WORDS.findall(last["model"]["text"] or "")})
-        if words and of_turn[0]["record"]["before"] == last["record"]["after"]:
-            said = ", ".join(words)
+    # Words and record disagree: the answer reports an action, and the turn made no
+    # business event (catch.py). The words cannot judge a sentence: they tell you which
+    # one to read.
+    for turn, events in by_turn(steps).items():
+        last = [step for step in steps if step["turn"] == turn][-1]
+        text = last["model"]["text"] or ""
+        if false_claim(text, events):
+            said = ", ".join(sorted({w.lower() for w in CLAIM_WORDS.findall(text)}))
             found.append(
                 f"turn {turn} step {last['step']}  words/record the answer says '{said}';"
                 " the record did not change in this turn"

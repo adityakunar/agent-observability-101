@@ -68,12 +68,12 @@ class Recorder:
         self.step = 0
         self.state = self.turn_start = await self._read_record()
 
-    def unchanged_turn(self) -> bool:
-        """Whether the business record is the same as at the start of the turn.
+    def turn_records(self) -> tuple[dict[str, Any], dict[str, Any]] | None:
+        """The business record at the start of the turn and now; events.diff compares them.
 
-        False when there is no record to read: with no snapshot, nothing is known.
+        None when there is no record to read: with no snapshot, nothing is known.
         """
-        return self.snapshot is not None and self.state == self.turn_start
+        return (self.turn_start, self.state) if self.snapshot is not None else None
 
     def begin_step(
         self, request: list[dict[str, Any]] | None, reply: Reply | None, with_tools: bool = True

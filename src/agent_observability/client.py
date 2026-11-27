@@ -21,7 +21,8 @@ from uuid import uuid4
 from fastmcp import Client
 from fastmcp.exceptions import ToolError
 
-from agent_observability.catch import CORRECTION, NOTE, claims
+from agent_observability.catch import CORRECTION, NOTE, false_claim
+from agent_observability.events import diff
 from agent_observability.model import Model, ModelError, Reply, TextCallback, ToolCall
 from agent_observability.record import Recorder, Step
 
@@ -158,8 +159,9 @@ class Agent:
                 prepared = self._record_reply(reply, turn)
                 if not prepared:
                     # No tool requests: the model's text is the answer. Unless it reports
-                    # an action, and the record did not change in this turn.
-                    if self.catch_claims and claims(text) and self.recorder.unchanged_turn():
+                    # an action, and the turn made no business event (catch.py).
+                    records = self.recorder.turn_records()
+                    if self.catch_claims and records and false_claim(text, diff(*records)):
                         if not turn.caught:
                             # Once: take the claim out of the history and ask again, with
                             # the claim and the correction on a copy.

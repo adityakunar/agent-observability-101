@@ -22,7 +22,7 @@ from typing import Any
 
 from fastmcp import Client
 
-from agent_observability.catch import claims
+from agent_observability.catch import false_claim
 from agent_observability.client import Agent
 from agent_observability.config import describe_model, llm_api_key, settings
 from agent_observability.events import by_turn
@@ -170,17 +170,17 @@ def outcomes(steps: list[Step], scenario: tuple[Expectation, ...]) -> list[str]:
 
 def false_claims(steps: list[Step]) -> tuple[int, int, int]:
     """Count the turns of one chat: claims caught, claims warned, and claims that reached the
-    customer with no note. A claim: the answer has an action word, and the record of the
-    whole turn did not change. With the check off, every claim reaches the customer."""
+    customer with no note (catch.false_claim). With the check off, every claim reaches the
+    customer."""
     caught = warned = unseen = 0
-    for turn in sorted({step["turn"] for step in steps}):
+    events = by_turn(steps)
+    for turn in events:
         of_turn = [step for step in steps if step["turn"] == turn]
         decisions = {act["decision"] for step in of_turn for act in step["host"]}
         caught += "caught claim" in decisions
         warned += "warned" in decisions
-        last = of_turn[-1]
-        unchanged = of_turn[0]["record"]["before"] == last["record"]["after"]
-        if unchanged and claims(last["model"]["text"] or "") and "warned" not in decisions:
+        answer = of_turn[-1]["model"]["text"] or ""
+        if false_claim(answer, events[turn]) and "warned" not in decisions:
             unseen += 1
     return caught, warned, unseen
 
