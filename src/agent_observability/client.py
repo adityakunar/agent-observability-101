@@ -132,8 +132,7 @@ class Agent:
                 # After a silent reply, the next request carries the cue; after a caught
                 # claim, the claim and the correction. They go on a copy, so they do not
                 # stay in the conversation.
-                request = [*self.messages, *extra] if extra else self.messages
-                extra = []
+                request, extra = [*self.messages, *extra], []
                 reply = await self.model.complete(request, self.tools, on_text=on_text)
                 step = self.recorder.begin_step(request, reply)
                 text = reply.text or ""
@@ -158,30 +157,11 @@ class Agent:
                     return turn
                 prepared = self._record_reply(reply, turn)
                 if not prepared:
-                    # No tool requests: the model's text is the answer. Unless it reports
-                    # an action, and the turn made no business event (catch.py).
-                    records = self.recorder.turn_records()
-                    if self.catch_claims and records and false_claim(text, diff(*records)):
-                        if not turn.caught:
-                            # Once: take the claim out of the history and ask again, with
-                            # the claim and the correction on a copy.
-                            turn.caught = True
-                            extra = [self.messages.pop(), CORRECTION]
-                            step["host"].append({"decision": "caught claim"})
-                            await self.recorder.end_step(step)
-                            if on_host:
-                                on_host(
-                                    "the answer reports a change; the record has none. Asked again."
-                                )
-                            continue
-                        # The same again: the customer reads the note. The history keeps
-                        # only the model's own words.
-                        turn.warned = True
-                        text += NOTE
-                        step["host"].append({"decision": "warned", "result": NOTE.strip()})
-                        if on_text:
-                            on_text(NOTE)
-                    turn.text = text
+                    # No tool requests: the model's text is the answer, unless the host
+                    # catches a claim that the record does not back (catch.py).
+                    extra = await self._catch(text, turn, step, on_text, on_host)
+                    if extra:
+                        continue
                     await self.recorder.end_step(step)
                     return turn
                 dispatched = await self._run_tools(
@@ -227,6 +207,38 @@ class Agent:
         step["host"].append({"decision": "fallback", "result": turn.text})
         await self.recorder.end_step(step)
         return turn
+
+    async def _catch(
+        self,
+        text: str,
+        turn: Turn,
+        step: Step,
+        on_text: TextCallback | None,
+        on_host: Callable[[str], None] | None,
+    ) -> list[dict[str, Any]]:
+        """Check an answer against the events of its turn; set it as the turn's answer.
+
+        The first false claim of a turn: take it out of the history and return it with the
+        correction, the messages of the retry. A second one: the customer reads the answer
+        with the note, and the history keeps only the model's own words.
+        """
+        turn.text = text
+        records = self.recorder.turn_records()
+        if not (self.catch_claims and records and false_claim(text, diff(*records))):
+            return []
+        if not turn.caught:
+            turn.caught = True
+            step["host"].append({"decision": "caught claim"})
+            await self.recorder.end_step(step)
+            if on_host:
+                on_host("the answer reports a change; the record has none. Asked again.")
+            return [self.messages.pop(), CORRECTION]
+        turn.warned = True
+        turn.text = text + NOTE
+        step["host"].append({"decision": "warned", "result": NOTE.strip()})
+        if on_text:
+            on_text(NOTE)
+        return []
 
     def _fallback(self, calls: list[str], reason: str) -> str:
         """The host's own answer when the model gives none. It lists only actions that ran."""
