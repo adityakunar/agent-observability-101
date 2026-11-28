@@ -97,8 +97,9 @@ Blocking a caught answer would throw away its true half ("the sauce contains
 celery"). Warning every time would warn on each false alarm. So the gate does
 two things, in order:
 
-1. **Once:** take the false sentence out of the history, and ask the model
-   again with a plain correction on a copy of the history.
+1. **Once:** take the false answer out of the history, and ask the model
+   again with a plain correction on a copy of the history. The true half is
+   not lost: the model writes the whole answer again.
 2. **If it claims again:** the answer goes out with a note for the customer.
 
 The correction and the note are in
@@ -111,7 +112,7 @@ The correction and the note are in
 
 > Shop check: your cart did not change in this turn. Please check it before you order.
 
-The false sentence leaves the history because a model copies what it finds
+The false answer leaves the history because a model copies what it finds
 there. Left in, the next turn could build on a swap that never happened. For
 the same reason a warned answer goes into the history with its note. A false
 alarm usually costs one extra model request; only when the retry trips the
@@ -140,8 +141,7 @@ bot> I have updated your order to a personal Margherita with thin crust.
 ```
 
 The check also runs on the wrap-up answer the host asks for when a turn runs
-out of steps; there a claim gets the note at once. Both details came from a
-review of this chapter, and neither changes the runs below.
+out of steps; there a claim gets the note at once.
 
 ## 4. Run it
 
@@ -167,7 +167,9 @@ brackets:
 |---|---|---|
 | Customer read a false claim, no warning | 20 (4, 8, 8) | **0** |
 | Swap done | 7 (4, 2, 1) | 16 (6, 4, 6) |
-| Claims caught / of those, warned | n/a | 19 / 8 |
+| Claims caught / claimed again / warned | n/a | 19 / 7 / 8 |
+
+Of the 8 warned, 7 claimed the swap again and 1 was a false alarm.
 
 **The gate did its job: no customer read a false claim unmarked.** The 0 is
 counted by the same word list that made the catch, so we checked it a second
@@ -208,7 +210,7 @@ One commit rewrites both lines. The rule now names `change_pizza` and says
 |---|---|---|
 | Customer read a false claim, no warning | 21 (7, 7, 7) | **0** |
 | Swap done | 9 (3, 3, 3) | 23 (6, 8, 9) |
-| Claims caught / claimed again | n/a | 13 / 0 |
+| Claims caught / claimed again / warned | n/a | 13 / 0 / 1 |
 
 **The prompt fix alone did not stop a single lie:** with the gate off, 21
 customers still read a false claim. Swaps done moved from 7 to 9, which is
@@ -301,7 +303,7 @@ agent's own words, you have reports and no receipts.
   runs, and on one run.
 - Test the checker on hand-marked answers, then again on answers it was not
   tuned on. Report both kinds of mistake.
-- Keep the false sentence out of the history.
+- Keep the false answer out of the history.
 - Read what the gate caught. Ours pointed at a line in our own prompt.
 
 ## Next: Chapter 5
