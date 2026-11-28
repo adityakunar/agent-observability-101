@@ -21,6 +21,8 @@ from uuid import uuid4
 from fastmcp import Client
 from fastmcp.exceptions import ToolError
 
+from agent_observability.catch import CORRECTION, NOTE, false_claim
+from agent_observability.events import diff
 from agent_observability.model import Model, ModelError, Reply, TextCallback, ToolCall
 from agent_observability.record import Recorder, Step
 
@@ -44,6 +46,8 @@ class Turn:
     duplicates: int = 0  # repeated business actions that the host did not run again
     reasks: int = 0  # silent replies that the host asked again, with a cue to speak
     fallback: bool = False  # the host wrote the answer, because the model gave none
+    caught: bool = False  # the host caught a claim that the record does not back (catch.py)
+    warned: bool = False  # the claim stayed after the correction; the customer reads a note
     error: str | None = None  # the error text, if a model request failed
 
 
@@ -58,6 +62,7 @@ class Agent:
         max_tool_iterations: int = 12,
         max_tool_calls: int = 16,
         recorder: Recorder | None = None,
+        catch_claims: bool = True,
     ) -> None:
         if max_tool_iterations < 1 or max_tool_calls < 1:
             raise ValueError("Model-step and tool-call budgets must be positive.")
@@ -68,6 +73,7 @@ class Agent:
         self.allowed_tools = allowed_tools
         self.max_tool_iterations = max_tool_iterations  # model requests for each customer message
         self.max_tool_calls = max_tool_calls  # tool calls for each customer message
+        self.catch_claims = catch_claims  # check each answer against the record (catch.py)
         self.messages: list[dict[str, Any]] = [{"role": "system", "content": prompt}]
         self.tools: list[dict[str, Any]] = []  # the catalog in the shape of the model API
         self.available: dict[str, dict[str, Any]] = {}  # the same catalog, by tool name
@@ -111,22 +117,23 @@ class Agent:
         *,
         on_text: TextCallback | None = None,
         on_tool: Callable[[str], None] | None = None,
+        on_host: Callable[[str], None] | None = None,
     ) -> Turn:
         """Run one customer message: ask the model, run its tool requests, ask again."""
         self.messages.append({"role": "user", "content": text})
         turn = Turn("")
         completed: dict[str, str] = {}  # business actions done in this turn, with their results
         dispatched = 0  # tool calls made in this turn
-        cue = False  # add the cue to the next model request
+        extra: list[dict[str, Any]] = []  # host messages for the next request only
         await self.recorder.begin_turn(text)
         try:
             for _ in range(self.max_tool_iterations):
                 advertised = {tool["function"]["name"] for tool in self.tools}
-                # After a silent reply, the next request carries the cue. The cue goes on
-                # a copy, so it does not stay in the conversation.
-                request = [*self.messages, CUE] if cue else self.messages
-                cue = False
-                reply = await self.model.complete(request, self.tools, on_text=on_text)
+                # After a silent reply, the next request carries the cue; after a caught
+                # claim, the claim and the correction. They go on a copy, so they do not
+                # stay in the conversation.
+                request, extra = [*self.messages, *extra], []
+                reply = await self.model.complete(request, self.tools, on_text=self._live(on_text))
                 step = self.recorder.begin_step(request, reply)
                 text = reply.text or ""
                 if not reply.tool_calls and not text.strip():
@@ -135,7 +142,7 @@ class Agent:
                     # each customer message; a second silence gets the host's answer.
                     if not turn.reasks:
                         turn.reasks += 1
-                        cue = True
+                        extra = [CUE]
                         step["host"].append({"decision": "asked again"})
                         await self.recorder.end_step(step)
                         continue
@@ -150,8 +157,11 @@ class Agent:
                     return turn
                 prepared = self._record_reply(reply, turn)
                 if not prepared:
-                    # No tool requests: the model's text is the answer.
-                    turn.text = text
+                    # No tool requests: the model's text is the answer, unless the host
+                    # catches a claim that the record does not back (catch.py).
+                    extra = await self._answer(text, turn, step, on_text, on_host)
+                    if extra:
+                        continue
                     await self.recorder.end_step(step)
                     return turn
                 dispatched = await self._run_tools(
@@ -172,11 +182,12 @@ class Agent:
                 "Repeated business actions were suppressed. Ask one necessary next question. "
                 "Do not claim unperformed actions or propose more tool calls this turn."
             )
-            reply = await self.model.complete(wrapup, [], on_text=on_text)
+            reply = await self.model.complete(wrapup, [], on_text=self._live(on_text))
             step = self.recorder.begin_step(wrapup, reply, with_tools=False)
             if reply.text and reply.text.strip():
-                turn.text = reply.text
-                self.messages.append({"role": "assistant", "content": turn.text})
+                # The wrap-up has no tools, so a caught claim gets the note, not a retry.
+                self.messages.append({"role": "assistant", "content": reply.text})
+                await self._answer(reply.text, turn, step, on_text, on_host, retry=False)
                 await self.recorder.end_step(step)
                 return turn
             turn.text = self._fallback(
@@ -197,6 +208,48 @@ class Agent:
         step["host"].append({"decision": "fallback", "result": turn.text})
         await self.recorder.end_step(step)
         return turn
+
+    def _live(self, on_text: TextCallback | None) -> TextCallback | None:
+        """The callback that streams the model's words: none while the check holds them."""
+        return None if self._gated() else on_text
+
+    def _gated(self) -> bool:
+        """Whether the host checks each answer: the check is on and the record can be read."""
+        return self.catch_claims and self.recorder.turn_records() is not None
+
+    async def _answer(
+        self,
+        text: str,
+        turn: Turn,
+        step: Step,
+        on_text: TextCallback | None,
+        on_host: Callable[[str], None] | None,
+        retry: bool = True,
+    ) -> list[dict[str, Any]]:
+        """Check an answer against the events of its turn (catch.py), then show it.
+
+        The answer is the last message of the history. A first false claim of the turn,
+        with a retry allowed: take it out of the history and return it with the
+        correction, the messages of the retry. Otherwise a false claim gets the note, in
+        the answer and in the history, so the next turn does not build on it. With the
+        check on, the words reach the customer only here, after the check.
+        """
+        turn.text = text
+        records = self.recorder.turn_records()
+        if self.catch_claims and records and false_claim(text, diff(*records)):
+            if retry and not turn.caught:
+                turn.caught = True
+                step["host"].append({"decision": "caught claim"})
+                await self.recorder.end_step(step)
+                if on_host:
+                    on_host("the answer reports a change; the record has none. Asked again.")
+                return [self.messages.pop(), CORRECTION]
+            turn.warned = True
+            turn.text = self.messages[-1]["content"] = text + NOTE
+            step["host"].append({"decision": "warned", "result": NOTE.strip()})
+        if self._gated() and on_text:
+            on_text(turn.text)
+        return []
 
     def _fallback(self, calls: list[str], reason: str) -> str:
         """The host's own answer when the model gives none. It lists only actions that ran."""

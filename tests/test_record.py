@@ -35,10 +35,16 @@ def setup_function():
     state.orders.clear()
 
 
-async def chat(path, replies, messages):
+async def chat(path, replies, messages, catch=True):
     """Run the customer messages against the scripted replies and return the record."""
     async with Client(server.mcp) as client:
-        agent = Agent(client, ScriptedModel(replies), PROMPT, recorder=Recorder(path, snapshot))
+        agent = Agent(
+            client,
+            ScriptedModel(replies),
+            PROMPT,
+            recorder=Recorder(path, snapshot),
+            catch_claims=catch,
+        )
         await agent.prepare()
         for message in messages:
             await agent.send(message)
@@ -77,6 +83,7 @@ async def test_a_claim_with_no_action_is_found_in_its_turn(tmp_path):
             Reply("The BBQ sauce contains celery. I have removed the BBQ Chicken."),
         ],
         ["A personal BBQ Chicken, thin crust.", "Is there celery in it? If so, remove it."],
+        catch=False,  # the host of Chapter 2: the claim goes out (Chapter 4 catches it)
     )
     assert steps[-1]["record"]["after"]["cart"] == ["1 × BBQ Chicken, Personal · Thin crust"]
     (found,) = findings(session, steps)

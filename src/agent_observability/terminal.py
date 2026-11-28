@@ -22,6 +22,13 @@ class Console:
             self.line_open = False
         print(f"tool> {name}", flush=True)
 
+    def host(self, message: str) -> None:
+        """A decision of the host that the customer should see, such as a caught claim."""
+        if self.line_open:
+            print()
+            self.line_open = False
+        print(f"host> {message}", flush=True)
+
     def metrics(self, values: Measurements) -> None:
         if self.line_open:
             print()
@@ -44,16 +51,19 @@ class Console:
         if not self.displayed:
             print(f"bot> {turn.text}")
         print(f"tools: {', '.join(turn.calls) or 'none'}")
-        notes = []
-        if turn.exhausted:
-            notes.append("turn budget reached; the reply above wraps up partial progress")
-        if turn.coercions:
-            notes.append(f"normalized {turn.coercions} mistyped argument(s)")
-        if turn.duplicates:
-            notes.append(f"suppressed {turn.duplicates} repeated business action(s)")
-        if turn.reasks:
-            notes.append("the model said nothing; the host asked again")
-        if turn.fallback:
-            notes.append("the reply above is from the host, not from the model")
+        # Each note with the field of the turn that makes it apply.
+        notes = [
+            note
+            for applies, note in (
+                (turn.exhausted, "turn budget reached; the reply above wraps up partial progress"),
+                (turn.coercions, f"normalized {turn.coercions} mistyped argument(s)"),
+                (turn.duplicates, f"suppressed {turn.duplicates} repeated business action(s)"),
+                (turn.reasks, "the model said nothing; the host asked again"),
+                (turn.caught, "the host caught a claim with no change in the record"),
+                (turn.warned, "the claim stayed, so the customer read a note"),
+                (turn.fallback, "the reply above is from the host, not from the model"),
+            )
+            if applies
+        ]
         if notes:
             print(f"note: {'; '.join(notes)}")

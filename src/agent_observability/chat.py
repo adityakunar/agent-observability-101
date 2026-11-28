@@ -59,7 +59,9 @@ async def run() -> None:
                     continue
                 console = Console()
                 model.on_metrics = console.metrics
-                turn = await agent.send(text, on_text=console.text, on_tool=console.tool)
+                turn = await agent.send(
+                    text, on_text=console.text, on_tool=console.tool, on_host=console.host
+                )
                 console.finish(turn)
     finally:
         await model.client.close()

@@ -55,6 +55,7 @@ class Recorder:
         self.turn = 0
         self.step = 0
         self.state: dict[str, Any] = {}  # the business record after the last step
+        self.turn_start: dict[str, Any] = {}  # the business record when the turn began
 
     def start(self, session_id: str, **facts: Any) -> None:
         """Write the first line: the facts that hold for the whole chat."""
@@ -65,7 +66,14 @@ class Recorder:
         self.customer = customer
         self.turn += 1
         self.step = 0
-        self.state = await self._read_record()
+        self.state = self.turn_start = await self._read_record()
+
+    def turn_records(self) -> tuple[dict[str, Any], dict[str, Any]] | None:
+        """The business record at the start of the turn and now; events.diff compares them.
+
+        None when there is no record to read: with no snapshot, nothing is known.
+        """
+        return (self.turn_start, self.state) if self.snapshot is not None else None
 
     def begin_step(
         self, request: list[dict[str, Any]] | None, reply: Reply | None, with_tools: bool = True

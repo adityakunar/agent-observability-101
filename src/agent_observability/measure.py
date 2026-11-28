@@ -1,12 +1,14 @@
 """Measure how often the agent does what the customer asks.
 
-    python -m agent_observability.measure run [SCENARIO] [CHATS] [TEMPERATURE]   3 batches of CHATS chats (10)
+    python -m agent_observability.measure run [SCENARIO] [CHATS] [CATCH] [TEMPERATURE]
+        3 batches of CHATS chats (10); CATCH on (default) or off: the host's claim check
     python -m agent_observability.measure read [DIR]    count again from the records in DIR
 
 Each chat of a scenario sends the same customer messages. Each one comes with an expectation: a
 business rule written as a check on the events of its turn (events.py). A turn counts only
 when its action was possible: the meal deal needs a pizza, a side and a drink in the cart.
-The turns that were possible and missed are listed, for a person to read.
+The turns that were possible and missed are listed, for a person to read, with the
+claims that the host caught (catch.py).
 """
 
 import asyncio
@@ -20,6 +22,7 @@ from typing import Any
 
 from fastmcp import Client
 
+from agent_observability.catch import false_claim
 from agent_observability.client import Agent
 from agent_observability.config import describe_model, llm_api_key, settings
 from agent_observability.events import by_turn
@@ -165,7 +168,26 @@ def outcomes(steps: list[Step], scenario: tuple[Expectation, ...]) -> list[str]:
     return result
 
 
-async def record(folder: Path, name: str, chats: int, temperature: float | None) -> None:
+def false_claims(steps: list[Step]) -> tuple[int, int, int]:
+    """Count the turns of one chat: claims caught, claims warned, and claims that reached the
+    customer with no note (catch.false_claim). With the check off, every claim reaches the
+    customer."""
+    caught = warned = unseen = 0
+    events = by_turn(steps)
+    for turn in events:
+        of_turn = [step for step in steps if step["turn"] == turn]
+        decisions = {act["decision"] for step in of_turn for act in step["host"]}
+        caught += "caught claim" in decisions
+        warned += "warned" in decisions
+        answer = of_turn[-1]["model"]["text"] or ""
+        if false_claim(answer, events[turn]) and "warned" not in decisions:
+            unseen += 1
+    return caught, warned, unseen
+
+
+async def record(
+    folder: Path, name: str, chats: int, catch: bool, temperature: float | None
+) -> None:
     """Record the chats with the configured model. The tools run in this process."""
     model = APIModel(
         settings.llm_base_url,
@@ -180,6 +202,7 @@ async def record(folder: Path, name: str, chats: int, temperature: float | None)
     conditions = {
         "model": describe_model(),
         "temperature": temperature,
+        "catch": catch,
         "scenario": name,
         "script": [e.says for e in SCENARIOS[name]],
     }
@@ -193,7 +216,13 @@ async def record(folder: Path, name: str, chats: int, temperature: float | None)
             for chat in range(1, chats + 1):
                 path = folder / f"batch{batch}" / f"chat{chat:02d}.jsonl"
                 async with Client(server.mcp) as client:
-                    agent = Agent(client, model, PROMPT, recorder=Recorder(path, snapshot))
+                    agent = Agent(
+                        client,
+                        model,
+                        PROMPT,
+                        recorder=Recorder(path, snapshot),
+                        catch_claims=catch,
+                    )
                     await agent.prepare()
                     for expectation in SCENARIOS[name]:
                         await agent.send(expectation.says)
@@ -203,12 +232,35 @@ async def record(folder: Path, name: str, chats: int, temperature: float | None)
         await model.client.close()
 
 
+def read_conditions(folder: Path) -> dict[str, Any]:
+    """Print the conditions of a run, because the number means little without them."""
+    path = folder / "conditions.json"
+    if not path.exists():
+        return {}
+    conditions: dict[str, Any] = json.loads(path.read_text())
+    # A run from before Chapter 4 has no "catch": its host had no claim check.
+    catch = {True: "on", False: "off"}[conditions.get("catch", False)]
+    print(f"{conditions['model']}, temperature {conditions['temperature']}, claim check {catch}")
+    return conditions
+
+
+def print_claims(batches: list[Path]) -> None:
+    """Print, per batch, the claims with no change in the record: caught, warned, unseen."""
+    claimed = []
+    for batch in batches:
+        counts = [false_claims(load(chat)[1]) for chat in sorted(batch.glob("chat*.jsonl"))]
+        claimed.append([sum(column) for column in zip(*counts, strict=True)] or [0, 0, 0])
+    print("\nclaims with no change in the record, all turns")
+    for i, label in enumerate(("caught", "warned", "unseen")):
+        cells = "".join(f"{c[i]:>9}" for c in claimed)
+        print(f"{label:>6}{cells}  {sum(c[i] for c in claimed):>5}")
+    print("caught: the host asked again; warned: the customer read a note;")
+    print("unseen: the customer read the claim with no note. The words only point at a sentence.")
+
+
 def report(folder: Path) -> None:
     """Count done turns out of possible turns, per batch, and list the misses."""
-    path = folder / "conditions.json"
-    conditions = json.loads(path.read_text()) if path.exists() else {}
-    if conditions:  # the number means little without them
-        print(f"{conditions['model']}, temperature {conditions['temperature']}")
+    conditions = read_conditions(folder)
     scenario = SCENARIOS[conditions.get("scenario", "order")]
     batches = sorted(folder.glob("batch*"))
     table = [[[0, 0] for _ in batches] for _ in scenario]  # [done, possible]
@@ -231,6 +283,7 @@ def report(folder: Path) -> None:
         done, possible = sum(c[0] for c in row), sum(c[1] for c in row)
         cells = "".join(f"{f'{c[0]}/{c[1]}':>9}" for c in row)
         print(f"{t + 1:>4}  {cells}  {done:>3}/{possible:<3} {scenario[t].says}")
+    print_claims(batches)
     print(
         f"\nMissed: {len(missed)} turns where the action was possible and the record does not show it."
     )
@@ -238,17 +291,27 @@ def report(folder: Path) -> None:
     print("\n".join(missed))
 
 
+def run(args: list[str]) -> Path:
+    """Record a run from the arguments: [SCENARIO] [CHATS] [CATCH] [TEMPERATURE]."""
+    if len(args) > 4:
+        raise SystemExit(__doc__)
+    defaults = ["order", "10", "on", ""]  # SCENARIO, CHATS, CATCH, TEMPERATURE (the profile's)
+    name, chats, catch, temperature = args + defaults[len(args) :]
+    if name not in SCENARIOS:
+        raise SystemExit(f"Unknown scenario {name!r}. Choose one of: {', '.join(SCENARIOS)}.")
+    if catch not in ("on", "off"):
+        raise SystemExit(f"CATCH is on or off, not {catch!r}.")
+    folder = RUNS / f"{datetime.now():%Y%m%d-%H%M%S}-{name}"
+    # A temperature here replaces the one of the profile, for this run only.
+    sampling = float(temperature) if temperature else settings.llm_temperature
+    asyncio.run(record(folder, name, int(chats), catch == "on", sampling))
+    return folder
+
+
 def main() -> None:
     verb = sys.argv[1] if len(sys.argv) > 1 else "read"
     if verb == "run":
-        name = sys.argv[2] if len(sys.argv) > 2 else "order"
-        if name not in SCENARIOS:
-            raise SystemExit(f"Unknown scenario {name!r}. Choose one of: {', '.join(SCENARIOS)}.")
-        folder = RUNS / f"{datetime.now():%Y%m%d-%H%M%S}-{name}"
-        chats = int(sys.argv[3]) if len(sys.argv) > 3 else 10
-        # A temperature here replaces the one of the profile, for this run only.
-        temperature = float(sys.argv[4]) if len(sys.argv) > 4 else settings.llm_temperature
-        asyncio.run(record(folder, name, chats, temperature))
+        folder = run(sys.argv[2:])
     elif verb == "read":
         runs = sorted(RUNS.glob("*/"))
         if len(sys.argv) > 2:

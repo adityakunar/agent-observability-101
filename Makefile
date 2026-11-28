@@ -50,6 +50,7 @@ help:
 	@echo "  make measure   3 batches of 10 scripted chats with the model, then what was done of what was possible"
 	@echo "  make measure SCENARIO=allergen   another customer: order (default), change, allergen, total"
 	@echo "  make measure TEMPERATURE=1.0   one run at another temperature than the profile's"
+	@echo "  make measure CATCH=off   without the host's claim check (Chapter 4)"
 	@echo "  make measure RUN=.run/measure/<time>-<customer>   count a saved run again, no model needed"
 	@echo "Check"
 	@echo "  make verify    make check, then make audit"
@@ -101,14 +102,15 @@ inspect:
 
 # Without RUN: record CHATS chats in each of 3 batches in $(RUN_DIR)/measure/<time>-<customer>/ (needs
 # the model, not the server: the tools run in the same process). TEMPERATURE replaces the
-# profile's for one run. With RUN: count that run again.
+# profile's for one run. CATCH=off turns the host's claim check off. With RUN: count that run again.
 SCENARIO ?= order
 CHATS    ?= 10
 RUN      ?=
 TEMPERATURE ?=
+CATCH    ?= on
 
 measure:
-	@$(UV) run --locked python -m agent_observability.measure $(if $(RUN),read $(RUN),run $(SCENARIO) $(CHATS) $(TEMPERATURE))
+	@$(UV) run --locked python -m agent_observability.measure $(if $(RUN),read $(RUN),run $(SCENARIO) $(CHATS) $(CATCH) $(TEMPERATURE))
 
 # make model and make server in the background, with logs and process IDs in $(RUN_DIR).
 # A part that already answers is left as it is. After a wait that was too short,
