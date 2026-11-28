@@ -21,6 +21,7 @@ The chapters, each with its own Git tag:
 | [Chapter 1](chapter-1.md) | compare what was said, what was done and what changed, one chat at a time | [client.py](src/agent_observability/client.py), the loop between the model and the tools |
 | [Chapter 2](chapter-2.md) | record each step of a chat and find the one where a false answer went wrong | `make inspect` |
 | [Chapter 3](chapter-3.md) | count how often the assistant does what it is asked, and find which part to blame | `make measure` |
+| [Chapter 4](chapter-4.md) | check what the assistant says it did against the record, before the customer reads it | [catch.py](src/agent_observability/catch.py), `make measure CATCH=off` |
 
 Each chapter ends with a list to use in your own project. Two deep-dishes go
 further into Chapter 1: [when the model replies with nothing](deep-dish/fallback/)
@@ -320,6 +321,7 @@ src/agent_observability/
 ├── inspector.py         reads a record and finds the step where layers disagree
 ├── events.py            the business events of each turn of a record (Chapter 3)
 ├── measure.py           scripted chats in batches: done of possible (make measure)
+├── catch.py             a claim that the record does not back: the host asks again (Chapter 4)
 ├── llm/                 the Model contract, the stream reader and the metrics of a request
 ├── pizza/
 │   ├── domain.py        the records: menu items, carts, orders
@@ -345,9 +347,8 @@ keeps conversations only in local records.
 
 ## What comes next
 
-The plan for Chapter 4 is to catch a false claim while the chat runs: a check
-in the host that compares what the assistant says with the events of the turn. Later chapters use a second
-model as a judge for what the assistant said.
+Chapter 5 swaps the model on purpose and checks which parts still hold. A later
+chapter uses a second model as a judge for what the assistant said.
 
 Each released chapter keeps its own Git tag.
 
