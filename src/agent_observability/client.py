@@ -133,7 +133,7 @@ class Agent:
                 # claim, the claim and the correction. They go on a copy, so they do not
                 # stay in the conversation.
                 request, extra = [*self.messages, *extra], []
-                reply = await self.model.complete(request, self.tools, on_text=on_text)
+                reply = await self.model.complete(request, self.tools, on_text=self._live(on_text))
                 step = self.recorder.begin_step(request, reply)
                 text = reply.text or ""
                 if not reply.tool_calls and not text.strip():
@@ -159,7 +159,7 @@ class Agent:
                 if not prepared:
                     # No tool requests: the model's text is the answer, unless the host
                     # catches a claim that the record does not back (catch.py).
-                    extra = await self._catch(text, turn, step, on_text, on_host)
+                    extra = await self._answer(text, turn, step, on_text, on_host)
                     if extra:
                         continue
                     await self.recorder.end_step(step)
@@ -182,11 +182,12 @@ class Agent:
                 "Repeated business actions were suppressed. Ask one necessary next question. "
                 "Do not claim unperformed actions or propose more tool calls this turn."
             )
-            reply = await self.model.complete(wrapup, [], on_text=on_text)
+            reply = await self.model.complete(wrapup, [], on_text=self._live(on_text))
             step = self.recorder.begin_step(wrapup, reply, with_tools=False)
             if reply.text and reply.text.strip():
-                turn.text = reply.text
-                self.messages.append({"role": "assistant", "content": turn.text})
+                # The wrap-up has no tools, so a caught claim gets the note, not a retry.
+                self.messages.append({"role": "assistant", "content": reply.text})
+                await self._answer(reply.text, turn, step, on_text, on_host, retry=False)
                 await self.recorder.end_step(step)
                 return turn
             turn.text = self._fallback(
@@ -208,36 +209,46 @@ class Agent:
         await self.recorder.end_step(step)
         return turn
 
-    async def _catch(
+    def _live(self, on_text: TextCallback | None) -> TextCallback | None:
+        """The callback that streams the model's words: none while the check holds them."""
+        return None if self._gated() else on_text
+
+    def _gated(self) -> bool:
+        """Whether the host checks each answer: the check is on and the record can be read."""
+        return self.catch_claims and self.recorder.turn_records() is not None
+
+    async def _answer(
         self,
         text: str,
         turn: Turn,
         step: Step,
         on_text: TextCallback | None,
         on_host: Callable[[str], None] | None,
+        retry: bool = True,
     ) -> list[dict[str, Any]]:
-        """Check an answer against the events of its turn; set it as the turn's answer.
+        """Check an answer against the events of its turn (catch.py), then show it.
 
-        The first false claim of a turn: take it out of the history and return it with the
-        correction, the messages of the retry. A second one: the customer reads the answer
-        with the note, and the history keeps only the model's own words.
+        The answer is the last message of the history. A first false claim of the turn,
+        with a retry allowed: take it out of the history and return it with the
+        correction, the messages of the retry. Otherwise a false claim gets the note, in
+        the answer and in the history, so the next turn does not build on it. With the
+        check on, the words reach the customer only here, after the check.
         """
         turn.text = text
         records = self.recorder.turn_records()
-        if not (self.catch_claims and records and false_claim(text, diff(*records))):
-            return []
-        if not turn.caught:
-            turn.caught = True
-            step["host"].append({"decision": "caught claim"})
-            await self.recorder.end_step(step)
-            if on_host:
-                on_host("the answer reports a change; the record has none. Asked again.")
-            return [self.messages.pop(), CORRECTION]
-        turn.warned = True
-        turn.text = text + NOTE
-        step["host"].append({"decision": "warned", "result": NOTE.strip()})
-        if on_text:
-            on_text(NOTE)
+        if self.catch_claims and records and false_claim(text, diff(*records)):
+            if retry and not turn.caught:
+                turn.caught = True
+                step["host"].append({"decision": "caught claim"})
+                await self.recorder.end_step(step)
+                if on_host:
+                    on_host("the answer reports a change; the record has none. Asked again.")
+                return [self.messages.pop(), CORRECTION]
+            turn.warned = True
+            turn.text = self.messages[-1]["content"] = text + NOTE
+            step["host"].append({"decision": "warned", "result": NOTE.strip()})
+        if self._gated() and on_text:
+            on_text(turn.text)
         return []
 
     def _fallback(self, calls: list[str], reason: str) -> str:

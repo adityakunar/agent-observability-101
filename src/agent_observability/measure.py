@@ -293,6 +293,8 @@ def report(folder: Path) -> None:
 
 def run(args: list[str]) -> Path:
     """Record a run from the arguments: [SCENARIO] [CHATS] [CATCH] [TEMPERATURE]."""
+    if len(args) > 4:
+        raise SystemExit(__doc__)
     defaults = ["order", "10", "on", ""]  # SCENARIO, CHATS, CATCH, TEMPERATURE (the profile's)
     name, chats, catch, temperature = args + defaults[len(args) :]
     if name not in SCENARIOS:
